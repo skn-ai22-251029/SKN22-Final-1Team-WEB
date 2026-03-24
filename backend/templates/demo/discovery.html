@@ -1,0 +1,139 @@
+{% extends "layouts/base_site.html" %}
+
+{% block page_title %}Style Discovery - MirrAI{% endblock %}
+
+{% block hero_content %}
+<div style="max-width: 1200px; margin: 0 auto; width: 100%;">
+  <p class="brand-sub" style="margin-bottom: 16px; color: var(--accent-neon);">Style Showcase</p>
+  <h2 class="hero-title">Discover Your<br /><span>Next</span> Persona</h2>
+  <p class="section-copy" style="color: rgba(255, 255, 255, 0.7); max-width: 600px; margin-bottom: 0;">
+    전문가와 AI가 공동으로 디자인한 큐레이션 컬렉션을 확인해 보세요.<br />
+    각 스타일은 서로 다른 페이스 라인과 무드에 최적화되어 있습니다.
+  </p>
+</div>
+{% endblock %}
+
+{% block content %}
+<div class="stack" style="gap: 48px;">
+  <!-- Page Navigation Section -->
+  <div class="panel bg-dark" style="border-color: rgba(255,255,255,0.1);">
+    <h3 class="section-title" style="font-size: 18px; color: var(--accent-neon); margin-bottom: 32px;">🛠 Service Flow Mapping</h3>
+    
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 32px;">
+      <!-- Customer Flow -->
+      <div class="stack" style="gap: 16px;">
+        <p class="brand-sub" style="font-size: 10px; color: rgba(255,255,255,0.4);">Customer Journey</p>
+        <a href="{% url 'index' %}" class="btn btn-dark" style="justify-content: space-between; height: 52px; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1);">
+          <span style="font-size: 14px;">Main Landing</span>
+          <span style="font-size: 12px; opacity: 0.3;">/</span>
+        </a>
+        <a href="{% url 'customer_index' %}" class="btn btn-dark" style="justify-content: space-between; height: 52px; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1);">
+          <span style="font-size: 14px;">Information Input</span>
+          <span style="font-size: 12px; opacity: 0.3;">/customer/</span>
+        </a>
+        <a href="{% url 'customer_survey' %}" class="btn btn-dark" style="justify-content: space-between; height: 52px; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1);">
+          <span style="font-size: 14px;">Preference Survey</span>
+          <span style="font-size: 12px; opacity: 0.3;">/survey/</span>
+        </a>
+        <a href="{% url 'customer_camera' %}" class="btn btn-dark" style="justify-content: space-between; height: 52px; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1);">
+          <span style="font-size: 14px;">Face Scan</span>
+          <span style="font-size: 12px; opacity: 0.3;">/camera/</span>
+        </a>
+        <a href="{% url 'customer_result' %}" class="btn btn-dark" style="justify-content: space-between; height: 52px; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1);">
+          <span style="font-size: 14px;">Analysis Result</span>
+          <span style="font-size: 12px; opacity: 0.3;">/result/</span>
+        </a>
+      </div>
+
+      <!-- Partner Flow -->
+      <div class="stack" style="gap: 16px;">
+        <p class="brand-sub" style="font-size: 10px; color: rgba(255,255,255,0.4);">Partner Center</p>
+        <a href="{% url 'partner_index' %}" class="btn btn-dark" style="justify-content: space-between; height: 52px; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1);">
+          <span style="font-size: 14px;">Partner Login</span>
+          <span style="font-size: 12px; opacity: 0.3;">/partner/</span>
+        </a>
+        <a href="{% url 'partner_signup' %}" class="btn btn-dark" style="justify-content: space-between; height: 52px; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1);">
+          <span style="font-size: 14px;">Partner Sign-up</span>
+          <span style="font-size: 12px; opacity: 0.3;">/signup/</span>
+        </a>
+        <a href="{% url 'partner_dashboard' %}" class="btn btn-dark" style="justify-content: space-between; height: 52px; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1);">
+          <span style="font-size: 14px;">Admin Dashboard</span>
+          <span style="font-size: 12px; opacity: 0.3;">/dashboard/</span>
+        </a>
+      </div>
+
+      <!-- Dev Tools -->
+      <div class="stack" style="gap: 16px;">
+        <p class="brand-sub" style="font-size: 10px; color: rgba(255,255,255,0.4);">System Architecture</p>
+        <a href="{% url 'docs' %}" target="_blank" class="btn btn-dark" style="justify-content: space-between; height: 52px; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1);">
+          <span style="font-size: 14px;">API Documentation</span>
+          <span style="font-size: 12px; opacity: 0.3;">Swagger</span>
+        </a>
+        <a href="/admin/" target="_blank" class="btn btn-dark" style="justify-content: space-between; height: 52px; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1);">
+          <span style="font-size: 14px;">Django Admin</span>
+          <span style="font-size: 12px; opacity: 0.3;">Backend</span>
+        </a>
+      </div>
+    </div>
+  </div>
+
+  <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 32px;">
+    <!-- Style Card 1 -->
+    <div class="panel" style="padding: 0; overflow: hidden; display: flex; flex-direction: column;">
+      <div style="height: 300px; background: var(--bg-dark); display: flex; align-items: center; justify-content: center; position: relative;">
+        <span style="font-size: 64px;">✨</span>
+        <div style="position: absolute; bottom: 20px; right: 20px; background: var(--accent-neon); color: var(--bg-dark); padding: 4px 12px; border-radius: 20px; font-weight: 800; font-size: 12px;">URBAN</div>
+      </div>
+      <div style="padding: 32px;">
+        <h3 class="section-title">Urban Chic Pixie</h3>
+        <p class="section-copy">현대적이고 날카로우며 자신감 넘치는 스타일입니다. 타원형이나 하트형 얼굴에 가장 추천합니다.</p>
+        <div style="margin-top: 24px; display: flex; gap: 8px;">
+          <span style="padding: 4px 12px; background: var(--bg-light); border-radius: 20px; font-size: 12px; font-weight: 600;">Short</span>
+          <span style="padding: 4px 12px; background: var(--bg-light); border-radius: 20px; font-size: 12px; font-weight: 600;">Trendy</span>
+        </div>
+      </div>
+    </div>
+    
+    <!-- Style Card 2 -->
+    <div class="panel" style="padding: 0; overflow: hidden; display: flex; flex-direction: column;">
+      <div style="height: 300px; background: var(--bg-dark); display: flex; align-items: center; justify-content: center; position: relative;">
+        <span style="font-size: 64px;">🌊</span>
+        <div style="position: absolute; bottom: 20px; right: 20px; background: var(--accent-neon); color: var(--bg-dark); padding: 4px 12px; border-radius: 20px; font-weight: 800; font-size: 12px;">ELEGANT</div>
+      </div>
+      <div style="padding: 32px;">
+        <h3 class="section-title">Soft Layered Wave</h3>
+        <p class="section-copy">우아하고 다재다능한 스타일입니다. 자연스러운 볼륨감을 주어 둥근 얼굴형에 완벽한 균형을 제공합니다.</p>
+        <div style="margin-top: 24px; display: flex; gap: 8px;">
+          <span style="padding: 4px 12px; background: var(--bg-light); border-radius: 20px; font-size: 12px; font-weight: 600;">Long</span>
+          <span style="padding: 4px 12px; background: var(--bg-light); border-radius: 20px; font-size: 12px; font-weight: 600;">Classic</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Style Card 3 -->
+    <div class="panel" style="padding: 0; overflow: hidden; display: flex; flex-direction: column;">
+      <div style="height: 300px; background: var(--bg-dark); display: flex; align-items: center; justify-content: center; position: relative;">
+        <span style="font-size: 64px;">📐</span>
+        <div style="position: absolute; bottom: 20px; right: 20px; background: var(--accent-neon); color: var(--bg-dark); padding: 4px 12px; border-radius: 20px; font-weight: 800; font-size: 12px;">MINIMAL</div>
+      </div>
+      <div style="padding: 32px;">
+        <h3 class="section-title">Minimalist Bob</h3>
+        <p class="section-copy">정교한 라인과 건축적인 정밀함이 돋보이는 세련된 데일리 룩입니다. 각진 얼굴형에 세련미를 더합니다.</p>
+        <div style="margin-top: 24px; display: flex; gap: 8px;">
+          <span style="padding: 4px 12px; background: var(--bg-light); border-radius: 20px; font-size: 12px; font-weight: 600;">Medium</span>
+          <span style="padding: 4px 12px; background: var(--bg-light); border-radius: 20px; font-size: 12px; font-weight: 600;">New</span>
+        </div>
+      </div>
+    </div>
+  </div>
+  
+  <div class="panel" style="text-align: center; padding: 64px 32px; background: var(--bg-dark); color: white; border: none;">
+    <h3 class="hero-title" style="font-size: 32px; margin-bottom: 16px;">Ready to find your <span>perfect</span> match?</h3>
+    <p class="section-copy" style="color: rgba(255,255,255,0.7); max-width: 640px; margin: 0 auto 40px;">당신만의 고유한 특징을 기반으로 한 1:1 맞춤형 스타일 추천을 지금 바로 시작해 보세요.</p>
+    <div style="display: flex; gap: 16px; justify-content: center; flex-wrap: wrap;">
+      <a href="{% url 'customer_index' %}" class="btn btn-primary" style="min-width: 200px;">Get Started Now</a>
+      <a href="{% url 'index' %}" class="btn btn-dark" style="border: 1px solid rgba(255,255,255,0.2); min-width: 200px;">Back to Home</a>
+    </div>
+  </div>
+</div>
+{% endblock %}

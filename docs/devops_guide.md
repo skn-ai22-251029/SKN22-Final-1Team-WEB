@@ -1,64 +1,63 @@
 # ☁️ MirrAI 클라우드 배포 가이드 (DevOps)
 
-이 가이드는 백엔드 개발 에이전트가 완성한 `Dockerfile`을 기반으로 AWS 클라우드에 배포하기 위한 환경 구성 및 CI/CD 자동화 파이프라인에 대한 안내입니다. 프리 티어와 비용 효율성을 고려하여 구성되었습니다.
+이 가이드는 현재 MirrAI 프로젝트의 **AWS Elastic Beanstalk (EB)** 기반 배포 구조와 **GitHub Actions**를 통한 CI/CD 자동화 파이프라인에 대한 안내입니다. 관리의 편의성과 확장성을 고려하여 Docker 컨테이너 기반의 EB 환경을 사용합니다.
 
 ---
 
 ## 🏗️ 1. 아키텍처 개요
 
+- **오케스트레이션**: `AWS Elastic Beanstalk` (Docker Platform)
 - **컨테이너 저장소**: `AWS ECR` (Amazon Elastic Container Registry)
-- **컴퓨팅 환경**: `AWS EC2` (t3.micro 권장, SSM 프로파일 적용)
+- **컴퓨팅 환경**: `AWS EC2` (EB에 의해 자동 관리, t3.micro 권장)
+- **이미지 업로드 저장소**: `AWS S3` (mirrai-user-images-dev 및 EB 배포 번들 저장용)
 - **CI/CD 파이프라인**: `GitHub Actions` (OIDC 인증 방식)
-- **이미지 업로드 저장소**: `AWS S3` (mirrai-user-images-dev)
+- **배포 설정 파일**: `Dockerrun.aws.json` (EB 전용 컨테이너 정의 파일)
 
 ---
 
-## 🛠️ 2. Terraform 인프라 프로비저닝 (`terraform/`)
+## 🛠️ 2. 핵심 배포 구성 요소
 
-프리 티어에 최적화된 최소 권한의 EC2 환경과 ECR 리포지토리를 생성합니다. 
-`main.tf`와 `variables.tf`가 포함되어 있습니다.
+### 1) `Dockerrun.aws.json`
+Elastic Beanstalk에 배포할 Docker 컨테이너의 정보를 담고 있습니다. 
+- 배포 시 GitHub Actions가 빌드한 최신 ECR 이미지 URI를 이 파일에 동적으로 주입합니다.
+- 호스트의 80포트를 컨테이너의 8000포트(Django)로 포워딩하도록 설정되어 있습니다.
 
-### 실행 방법
-```bash
-cd terraform
-terraform init
-terraform plan
-terraform apply
-```
-
-### 포함된 주요 리소스
-1. **`aws_ecr_repository.backend_repo`**: Docker 이미지가 저장될 `mirrai-backend` 관리
-2. **`aws_iam_role.ec2_role`**: EC2에서 ECR 이미지를 당겨오고(Pull) SSM(Session Manager)으로 원격 접속하기 위한 권한
-3. **`aws_instance.backend`**: 
-   - User Data(시작 스크립트)를 통해 인스턴스 부팅 직후 Docker 자동 설치 및 실행
-4. **`aws_s3_bucket.image_bucket`**: 고객 얼굴 시뮬레이션 이미지를 저장할 S3 생성
-
-> **ALB (Load Balancer) 관련**: 비용 절감을 위해 초기에는 EC2에 Elastic IP(탄력적 IP)를 붙여 직접 8000 포트로 서비스하는 것을 권장합니다. 프로덕션 스케일 확장이 필요할 때 ALB를 추가하기 쉽도록 분리 구조로 짰습니다.
+### 2) `terraform/` (인프라 코드)
+프로젝트에 필요한 핵심 리소스를 코드로 관리합니다.
+- `aws_ecr_repository`: Backend/Frontend Docker 이미지를 저장할 리포지토리 생성
+- `aws_s3_bucket`: 고객 분석 이미지 저장용 S3 버킷 및 CORS 설정
+- `aws_iam_role`: EC2/EB 환경에서 필요한 최소 권한(ECR Pull, SSM Core 등) 정의
 
 ---
 
 ## 🚀 3. CI/CD 파이프라인 (`.github/workflows/deploy.yml`)
 
-GitHub 코드가 `main` 브랜치에 푸시되면 자동으로 빌드되고 AWS EC2에 배포되는 구조입니다.
+`main` 브랜치에 코드가 푸시되면 자동으로 이미지가 빌드되고 EB 환경이 업데이트됩니다.
 
-### 동작 원리
-1. **빌드 단계**: `backend` 폴더에서 Docker 이미지를 빌드하고 AWS ECR에 Push
-2. **배포 단계**: AWS Systems Manager(SSM)를 통해 EC2 내부에 원격 명령(Run Command) 전달
-   - ECR 로그인 ➡️ 새 이미지 Pull ➡️ 기존 컨테이너 Stop & rm ➡️ 새 컨테이너 Run
+### 배포 프로세스
+1. **Docker 빌드 및 푸시**: `backend/Dockerfile`을 기반으로 이미지를 빌드하고 AWS ECR에 전송합니다.
+2. **이미지 URI 주입**: 빌드된 최신 이미지 주소를 `Dockerrun.aws.json` 파일에 자동으로 기록합니다.
+3. **배포 패키지 생성**: `Dockerrun.aws.json`을 `zip`으로 압축하여 배포 번들을 만듭니다.
+4. **EB 버전 생성 및 배포**: 생성된 번들을 S3에 업로드하고, Elastic Beanstalk 환경을 최신 버전으로 업데이트하여 무중단 배포를 시도합니다.
 
 ### 필수 GitHub Secrets 등록
-GitHub 레포지토리 `Settings` > `Secrets and variables` > `Actions`에서 다음 항목을 등록하세요.
+배포를 위해 GitHub 레포지토리 `Settings` > `Secrets and variables` > `Actions`에 다음 항목을 반드시 등록해야 합니다.
 
 | Secret Name | 설명 |
 |---|---|
 | `AWS_OIDC_ROLE_ARN` | GitHub Actions가 OIDC로 임시 인증을 받을 IAM Role ARN |
-| `AWS_ACCOUNT_ID` | 12자리 AWS 계정 ID (예: 123456789012) |
-| `EC2_INSTANCE_ID` | 배포 타겟 서버(EC2)의 인스턴스 ID (예: i-0123456789abcdef) |
-
-> 🔒 **OIDC 방식의 장점**: `AWS_ACCESS_KEY_ID` 같은 영구 자격 증명을 깃허브에 저장하지 않아 보안 사고를 원천 방지합니다. OIDC Role 셋업은 [AWS 공식 가이드](https://docs.aws.amazon.com/ko_kr/IAM/latest/UserGuide/id_roles_providers_create_oidc.html)를 참고하세요.
+| `EB_APPLICATION_NAME` | AWS Elastic Beanstalk 애플리케이션 이름 (예: `mirrai-app`) |
+| `EB_ENVIRONMENT_NAME` | AWS Elastic Beanstalk 환경 이름 (예: `mirrai-env`) |
+| `ECR_REPOSITORY_NAME` | AWS ECR 리포지토리 이름 (예: `mirrai-backend`) |
 
 ---
 
-## 🔐 4. 앱 환경 변수(Secret) 보안 지침 
+## 🔐 4. 앱 환경 변수(Secret) 및 보안 지침
 
-`main.py`나 데이터베이스에 접근할 때 필요한 민감한 정보(예: `DB_URL`, `OPENAI_API_KEY` 등)는 `docker run` 명령에 `-e` 옵션으로 추가하거나 **AWS System Manager Parameter Store**에 저장하여 런타임에 동적으로 주입받는 구조를 사용하세요. (코드 내 **Zero Hardcoding** 원칙 준수)
+민감한 정보(예: `DB_URL`, `SECRET_KEY`, `OPENAI_API_KEY` 등)는 코드에 하드코딩하지 않으며 다음과 같이 관리합니다.
+
+1.  **EB 환경 속성 주입**: AWS 콘솔의 `Configuration > Updates, monitoring, and logging > Environment properties`에서 설정합니다.
+2.  **SSM Parameter Store**: 테라폼 코드에 정의된 대로 `/mirrai/*` 경로의 파라미터를 사용하여 런타임에 동적으로 주입받을 수 있습니다.
+3.  **보안 유지**: `.env` 파일은 절대 Git에 포함하지 않으며, `.gitignore`를 통해 철저히 관리합니다.
+
+> 💡 **참고**: 배포에 실패할 경우 AWS 콘솔의 `Elastic Beanstalk > Environments > Logs`에서 전체 로그를 확인하여 원인을 파악하세요.

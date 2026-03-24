@@ -1,0 +1,52 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
+    <meta http-equiv="Pragma" content="no-cache" />
+    <meta http-equiv="Expires" content="0" />
+    <title>{% block page_title %}MirrAI{% endblock %}</title>
+    <link rel="stylesheet" href="{% static 'shared/styles/base.css' %}" />
+    {% block extra_head %}{% endblock %}
+  </head>
+  <body>
+    <div class="site-shell">
+      <!-- Hero Section: Header + Top Messaging -->
+      <section class="hero-section">
+        <header class="site-header">
+          <a class="brand" href="{% url 'index' %}">
+            <h1 class="brand-mark">Mirr<span>AI</span></h1>
+            <span class="brand-sub">{% block brand_sub %}premium styling{% endblock %}</span>
+          </a>
+          
+          <nav class="nav-links">
+            <a href="{% url 'customer_index' %}" class="nav-link">스타일 분석</a>
+            <a href="{% url 'demo_discovery' %}" class="nav-link">쇼케이스</a>
+            <a href="{% url 'partner_index' %}" class="nav-link">파트너 센터</a>
+            
+            {% if request.session.customer_name %}
+              <div style="display: flex; align-items: center; gap: 12px; margin-left: 12px;">
+                <span class="brand-sub" style="text-transform: none; color: white;">
+                  <strong>{{ request.session.customer_name }}</strong>님
+                </span>
+                <a href="{% url 'customer_logout' %}" class="btn btn-dark" style="height: 32px; padding: 0 16px; font-size: 12px;">로그아웃</a>
+              </div>
+            {% endif %}
+          </nav>
+        </header>
+
+        {% block hero_content %}{% endblock %}
+      </section>
+
+      <!-- Content Section: Main UI Elements -->
+      <section class="content-section">
+        {% block content %}{% endblock %}
+      </section>
+      
+      {% include "components/footer.html" %}
+    </div>
+    {% block page_scripts %}{% endblock %}
+  </body>
+</html>

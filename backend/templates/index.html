@@ -1,0 +1,67 @@
+{% extends "layouts/base_site.html" %}
+
+{% block page_title %}MirrAI | AI Hair Styling Solution{% endblock %}
+
+{% block hero_content %}
+<div style="max-width: 1200px; margin: 0 auto; width: 100%;">
+  <p class="brand-sub" style="margin-bottom: 16px; color: var(--accent-neon);">AI-Powered Analysis</p>
+  <h2 class="hero-title">당신에게 가장<br /><span>완벽한</span> 헤어 스타일</h2>
+  <p class="section-copy" style="color: rgba(255, 255, 255, 0.7); max-width: 600px; margin-bottom: 48px; font-size: 18px;">
+    MirrAI의 독자적인 AI 기술로 당신의 페이스 라인과 스타일을 분석합니다.<br />
+    이제 정교한 디지털 미러를 통해 새로운 당신을 발견하세요.
+  </p>
+  <div style="display: flex; gap: 16px; flex-wrap: wrap;">
+    <a href="{{ start_url }}" class="btn btn-primary">분석 시작하기</a>
+    <a href="{% url 'demo_discovery' %}" class="btn btn-dark" style="border: 1px solid rgba(255, 255, 255, 0.2);">쇼케이스 보기</a>
+    <a href="{{ partner_url }}" class="btn btn-dark" style="border: 1px solid rgba(255, 255, 255, 0.2);">파트너 센터</a>
+  </div>
+</div>
+{% endblock %}
+
+{% block content %}
+<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 32px;">
+  <div class="panel">
+    <div style="width: 48px; height: 48px; background: var(--bg-dark); border-radius: 12px; display: flex; align-items: center; justify-content: center; margin-bottom: 24px;">
+      <span style="color: var(--accent-neon); font-size: 20px; font-weight: 800;">01</span>
+    </div>
+    <h3 class="section-title">AI 정밀 분석</h3>
+    <p class="section-copy">수천 명의 데이터셋을 학습한 AI가 당신의 두상과 모발 상태를 0.1mm 단위로 정교하게 분석합니다.</p>
+  </div>
+  
+  <div class="panel">
+    <div style="width: 48px; height: 48px; background: var(--bg-dark); border-radius: 12px; display: flex; align-items: center; justify-content: center; margin-bottom: 24px;">
+      <span style="color: var(--accent-neon); font-size: 20px; font-weight: 800;">02</span>
+    </div>
+    <h3 class="section-title">개인화 추천</h3>
+    <p class="section-copy">단순한 트렌드 추종이 아닌, 당신의 고유한 매력을 극대화할 수 있는 최적의 스타일을 제안합니다.</p>
+  </div>
+  
+  <div class="panel">
+    <div style="width: 48px; height: 48px; background: var(--bg-dark); border-radius: 12px; display: flex; align-items: center; justify-content: center; margin-bottom: 24px;">
+      <span style="color: var(--accent-neon); font-size: 20px; font-weight: 800;">03</span>
+    </div>
+    <h3 class="section-title">스마트 히스토리</h3>
+    <p class="section-copy">과거의 스타일 변화를 기록하고 관리하여 최상의 컨디션을 유지할 수 있도록 돕습니다.</p>
+  </div>
+</div>
+{% endblock %}
+
+{% block page_scripts %}
+<script>
+  (function() {
+    'use strict';
+    const buttons = document.querySelectorAll('.btn-primary');
+    buttons.forEach(btn => {
+      btn.addEventListener('click', function(e) {
+        if (this.classList.contains('is-loading')) {
+          e.preventDefault();
+          return;
+        }
+        this.classList.add('is-loading');
+        this.style.opacity = '0.7';
+        this.textContent = '분석 준비 중...';
+      });
+    });
+  })();
+</script>
+{% endblock %}

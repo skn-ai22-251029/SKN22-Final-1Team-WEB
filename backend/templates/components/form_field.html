@@ -1,0 +1,13 @@
+﻿<label class="form-field">
+  <span class="form-label">{{ label }}</span>
+  <input
+    class="form-input"
+    type="{{ input_type|default:'text' }}"
+    id="id_{{ name }}"
+    name="{{ name }}"
+    placeholder="{{ placeholder|default:'' }}"
+    value="{{ value|default:'' }}"
+    {% if required %}required{% endif %}
+  />
+  <span id="error_{{ name }}" class="camera-status error" style="display: none; font-size: 12px; margin-top: 4px;"></span>
+</label>

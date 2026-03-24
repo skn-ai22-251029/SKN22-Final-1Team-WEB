@@ -1,0 +1,530 @@
+{% extends "layouts/base_site.html" %}
+
+{% block page_title %}MirrAI | Analysis Result{% endblock %}
+
+{% block extra_head %}
+<style>
+  .result-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 32px;
+    margin-top: 32px;
+  }
+
+  @media (max-width: 768px) {
+    .result-grid {
+      grid-template-columns: 1fr;
+      gap: 20px;
+    }
+    .style-info {
+      padding: 20px;
+    }
+    .style-info .section-title {
+      font-size: 18px !important;
+    }
+  }
+
+  .style-card {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: var(--radius-lg);
+    overflow: hidden;
+    transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    display: flex;
+    flex-direction: column;
+    box-shadow: var(--shadow-main);
+  }
+
+  .style-card:hover {
+    transform: translateY(-12px);
+    box-shadow: 0 30px 60px rgba(0, 0, 0, 0.1);
+  }
+
+  .style-image-wrapper {
+    position: relative;
+    width: 100%;
+    aspect-ratio: 1;
+    overflow: hidden;
+  }
+
+  .style-image {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    transition: transform 0.6s ease;
+  }
+
+  .style-card:hover .style-image {
+    transform: scale(1.1);
+  }
+
+  .style-info {
+    padding: 24px;
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+
+  .match-badge {
+    position: absolute;
+    top: 20px;
+    left: 20px;
+    padding: 6px 16px;
+    background: var(--accent-neon);
+    color: var(--bg-dark);
+    border-radius: var(--radius-pill);
+    font-size: 13px;
+    font-weight: 800;
+    box-shadow: var(--shadow-floating);
+  }
+
+  .style-card.selected {
+    border: 3px solid var(--accent-neon);
+    box-shadow: var(--shadow-neon);
+  }
+
+  /* Modal & Toast */
+  #toast {
+    position: fixed;
+    bottom: 40px;
+    left: 50%;
+    transform: translateX(-50%) translateY(100px);
+    background: var(--bg-dark);
+    color: var(--accent-neon);
+    padding: 16px 32px;
+    border-radius: var(--radius-pill);
+    font-weight: 700;
+    transition: all 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    z-index: 1000;
+    box-shadow: var(--shadow-neon);
+  }
+  #toast.show { transform: translateX(-50%) translateY(0); }
+
+  .modal {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.8);
+    backdrop-filter: blur(12px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 2000;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.3s ease;
+  }
+  .modal.show { opacity: 1; pointer-events: auto; }
+
+  .modal-content {
+    width: 90%;
+    max-width: 900px;
+    background: white;
+    border-radius: var(--radius-lg);
+    overflow: hidden;
+    position: relative;
+  }
+
+  .thumb.active {
+    border: 3px solid var(--accent-neon);
+    transform: scale(1.1);
+  }
+
+  /* Leak Prevention UI */
+  .style-image-wrapper {
+    user-select: none;
+    -webkit-user-drag: none;
+  }
+  
+  .style-image {
+    pointer-events: none; /* Disable right click effectively */
+  }
+
+  .watermark {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    pointer-events: none;
+    opacity: 0.15;
+    z-index: 5;
+    overflow: hidden;
+  }
+
+  .watermark span {
+    font-size: 24px;
+    font-weight: 900;
+    color: white;
+    transform: rotate(-45deg);
+    white-space: nowrap;
+    text-transform: uppercase;
+  }
+
+  .capture-warning {
+    background: rgba(220, 38, 38, 0.1);
+    border: 1px solid rgba(220, 38, 38, 0.2);
+    color: #dc2626;
+    padding: 12px 20px;
+    border-radius: var(--radius-md);
+    font-size: 13px;
+    margin-bottom: 24px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  /* Consent Modal Styles */
+  .consent-modal-content {
+    max-width: 500px;
+    padding: 40px;
+  }
+
+  .consent-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    margin-bottom: 20px;
+    padding: 16px;
+    border-radius: var(--radius-md);
+    background: var(--bg-light);
+    transition: background 0.2s ease;
+  }
+
+  .consent-item:hover {
+    background: #f1f5f9;
+  }
+
+  .consent-item input[type="checkbox"] {
+    width: 20px;
+    height: 20px;
+    margin-top: 2px;
+    cursor: pointer;
+  }
+
+  .consent-text {
+    flex: 1;
+    font-size: 14px;
+    color: var(--bg-dark);
+    line-height: 1.5;
+  }
+
+  .consent-text b {
+    display: block;
+    margin-bottom: 4px;
+  }
+
+  .consent-tag {
+    font-size: 11px;
+    font-weight: 700;
+    padding: 2px 6px;
+    border-radius: 4px;
+    margin-left: 6px;
+  }
+
+  .tag-required { background: #fee2e2; color: #ef4444; }
+  .tag-optional { background: #f1f5f9; color: #64748b; }
+</style>
+{% endblock %}
+
+{% block hero_content %}
+<style>
+  .result-hero {
+    max-width: 1200px;
+    margin: 0 auto;
+    width: 100%;
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+    gap: 32px;
+  }
+  @media (max-width: 992px) {
+    .result-hero {
+      flex-direction: column;
+      align-items: stretch;
+    }
+    #selectionSummary {
+      min-width: 100% !important;
+    }
+  }
+</style>
+<div class="result-hero">
+  <div style="flex: 1;">
+    <p class="brand-sub" style="margin-bottom: 16px; color: var(--accent-neon);">Step 03: Final Result</p>
+    <h2 class="hero-title">당신을 위한<br /><span>최적의</span> 스타일 제안</h2>
+    <p class="section-copy" style="color: rgba(255, 255, 255, 0.7); max-width: 600px; margin-bottom: 0;">
+      AI 분석 결과, 당신의 매력을 가장 돋보이게 할 3가지 스타일입니다.<br />
+      디자이너와 상담하고 싶은 스타일을 선택해 주세요.
+    </p>
+  </div>
+  
+  <div id="selectionSummary" class="panel bg-dark" style="min-width: 300px; border-color: rgba(255,255,255,0.1); padding: 24px;">
+    <p class="brand-sub" style="margin-bottom: 12px;">Selected Style</p>
+    <div id="selectedInfo" style="color: white; font-size: 18px; font-weight: 700; margin-bottom: 24px;">스타일을 선택해 주세요</div>
+    <button id="saveBtn" class="btn btn-primary" style="width: 100%; height: 48px;" disabled>상담 예약하기</button>
+  </div>
+</div>
+{% endblock %}
+
+{% block content %}
+<div class="capture-warning">
+  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>
+  <span>보안 정책에 따라 화면 캡처 및 이미지 무단 공유가 금지되어 있습니다. 모든 이미지는 내부 상담용으로만 사용 가능합니다.</span>
+</div>
+
+<div id="loadingResults" style="padding: 100px 0; text-align: center;">
+  <div style="width: 64px; height: 64px; border: 4px solid var(--line); border-top-color: var(--accent-neon); border-radius: 50%; animation: spin 1s linear infinite; margin: 0 auto 24px;"></div>
+  <p class="section-title">AI가 최적의 조합을 찾는 중...</p>
+</div>
+
+<div id="resultGrid" class="result-grid is-hidden">
+  <!-- Dynamic Cards -->
+</div>
+
+<div id="toast">선택하신 정보가 저장되었습니다.</div>
+
+<!-- Modal -->
+<div id="referenceModal" class="modal">
+  <div class="modal-content">
+    <button id="modalClose" style="position: absolute; top: 24px; right: 24px; width: 48px; height: 48px; border-radius: 50%; background: white; border: none; cursor: pointer; font-size: 24px; z-index: 10; box-shadow: var(--shadow-floating);">&times;</button>
+    <div style="display: flex; height: 600px;">
+      <div style="flex: 1; background: #000; display: flex; align-items: center; justify-content: center;">
+        <img id="mainRefImg" src="" alt="Reference" style="max-width: 100%; max-height: 100%; object-fit: contain;">
+      </div>
+      <div style="width: 320px; display: flex; flex-direction: column; background: white; border-left: 1px solid var(--line);">
+        <div style="padding: 32px;">
+          <h3 id="modalStyleName" class="section-title" style="margin-bottom: 12px;">스타일명</h3>
+          <p id="modalRefDesc" class="section-copy" style="font-size: 14px;">설명입니다.</p>
+        </div>
+        <div id="thumbContainer" style="margin-top: auto; padding: 24px; display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; background: var(--bg-light);">
+          <!-- Thumbs -->
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Privacy Consent Modal -->
+<div id="consentModal" class="modal">
+  <div class="modal-content consent-modal-content">
+    <h3 class="section-title" style="margin-bottom: 24px;">개인정보 수집 및 이용 동의</h3>
+    <p class="section-copy" style="font-size: 14px; margin-bottom: 32px;">
+      안전한 서비스 제공을 위해 아래 항목에 대한 동의가 필요합니다.
+    </p>
+
+    <div class="consent-item">
+      <input type="checkbox" id="consentFace" checked>
+      <label for="consentFace" class="consent-text">
+        <b>얼굴 사진 수집 및 이용 동의 <span class="consent-tag tag-required">필수</span></b>
+        AI 스타일 분석 및 시뮬레이션 결과 생성을 위해 촬영된 사진을 활용합니다.
+      </label>
+    </div>
+
+    <div class="consent-item">
+      <input type="checkbox" id="consentStorage" checked>
+      <label for="consentStorage" class="consent-text">
+        <b>서비스 제공 및 기록 저장 동의 <span class="consent-tag tag-required">필수</span></b>
+        상담 이력 관리 및 향후 서비스 제공을 위해 분석 결과가 보안 서버에 저장됩니다.
+      </label>
+    </div>
+
+    <div class="consent-item">
+      <input type="checkbox" id="consentMarketing">
+      <label for="consentMarketing" class="consent-text">
+        <b>통계 및 마케팅 활용 동의 <span class="consent-tag tag-optional">선택</span></b>
+        서비스 개선을 위한 통계 분석 및 맞춤형 혜택 안내에 활용될 수 있습니다.
+      </label>
+    </div>
+
+    <div style="display: flex; gap: 12px; margin-top: 40px;">
+      <button id="consentCancel" class="btn btn-dark" style="flex: 1; background: var(--bg-light); color: var(--bg-dark); border: 1px solid var(--line);">취소</button>
+      <button id="consentConfirm" class="btn btn-primary" style="flex: 2;">동의하고 저장하기</button>
+    </div>
+  </div>
+</div>
+
+<style>
+@keyframes spin { to { transform: rotate(360deg); } }
+</style>
+{% endblock %}
+
+{% block page_scripts %}
+<script>
+  (function() {
+    'use strict';
+    const grid = document.getElementById('resultGrid');
+    const loading = document.getElementById('loadingResults');
+    const saveBtn = document.getElementById('saveBtn');
+    const selectedInfo = document.getElementById('selectedInfo');
+    const toast = document.getElementById('toast');
+    
+    const modal = document.getElementById('referenceModal');
+    const modalClose = document.getElementById('modalClose');
+    const mainRefImg = document.getElementById('mainRefImg');
+    const thumbContainer = document.getElementById('thumbContainer');
+    const modalStyleName = document.getElementById('modalStyleName');
+    const modalRefDesc = document.getElementById('modalRefDesc');
+    
+    const consentModal = document.getElementById('consentModal');
+    const consentConfirm = document.getElementById('consentConfirm');
+    const consentCancel = document.getElementById('consentCancel');
+    const consentFace = document.getElementById('consentFace');
+    const consentStorage = document.getElementById('consentStorage');
+    const consentMarketing = document.getElementById('consentMarketing');
+
+    let selectedStyleId = null;
+    let customerName = "{{ request.session.customer_name }}";
+    const customerId = "{{ request.session.customer_id }}";
+    
+    // Mask name: 홍길동 -> 홍*동
+    function maskName(name) {
+      if (!name) return "";
+      if (name.length <= 2) return name[0] + "*";
+      return name[0] + "*".repeat(name.length - 2) + name[name.length - 1];
+    }
+
+    async function fetchRecommendations() {
+      if (!customerId) {
+        alert("고객 정보가 없습니다.");
+        window.location.href = "/customer/";
+        return;
+      }
+      try {
+        const response = await fetch(`/api/v1/analysis/recommendations/?customer_id=${customerId}`);
+        const data = await response.json();
+        renderResults(data);
+      } catch (error) {
+        console.error("Fetch error:", error);
+        loading.innerHTML = '<p class="section-title" style="color: var(--status-red);">데이터를 불러오지 못했습니다.</p>';
+      }
+    }
+
+    function renderResults(results) {
+      loading.classList.add('is-hidden');
+      grid.classList.remove('is-hidden');
+      grid.innerHTML = '';
+      results.forEach(style => {
+        const card = document.createElement('div');
+        card.className = 'style-card';
+        card.dataset.id = style.style_id;
+        card.innerHTML = `
+          <div class="style-image-wrapper">
+            <img class="style-image" src="${style.synthetic_image_url || 'https://via.placeholder.com/400x400?text=Style'}" alt="${style.style_name}">
+            <div class="watermark"><span>MirrAI SECURITY</span></div>
+            <span class="match-badge">${style.match_score}% Match</span>
+          </div>
+          <div class="style-info">
+            <h3 class="section-title" style="font-size: 20px; margin-bottom: 0;">${style.style_name}</h3>
+            <p class="section-copy" style="font-size: 14px; line-height: 1.5;">${style.reasoning}</p>
+            <div style="margin-top: auto; display: flex; gap: 8px;">
+              <button class="btn btn-dark select-btn" style="flex: 1; height: 44px; font-size: 14px;">선택하기</button>
+              <button class="btn btn-dark view-ref-btn" style="width: 44px; height: 44px; padding: 0; background: var(--bg-light); color: var(--bg-dark); border: 1px solid var(--line);">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+              </button>
+            </div>
+          </div>
+        `;
+        card.querySelector('.select-btn').addEventListener('click', () => selectStyle(style));
+        card.querySelector('.view-ref-btn').addEventListener('click', (e) => {
+          e.stopPropagation();
+          openReferenceModal(style);
+        });
+        grid.appendChild(card);
+      });
+    }
+
+    function selectStyle(style) {
+      selectedStyleId = style.style_id;
+      document.querySelectorAll('.style-card').forEach(c => c.classList.remove('selected'));
+      document.querySelector(`.style-card[data-id="${selectedStyleId}"]`).classList.add('selected');
+      selectedInfo.innerHTML = `${style.style_name} <span style="color: var(--accent-neon); font-size: 14px; margin-left: 8px;">${style.match_score}% Match</span>`;
+      saveBtn.disabled = false;
+    }
+
+    function openReferenceModal(style) {
+      modalStyleName.textContent = style.style_name;
+      thumbContainer.innerHTML = '';
+      const refs = style.reference_images || [];
+      if (refs.length > 0) {
+        refs.forEach((ref, index) => {
+          const thumb = document.createElement('img');
+          thumb.style = "width: 100%; aspect-ratio: 1; object-fit: cover; border-radius: 8px; cursor: pointer;";
+          thumb.className = 'thumb';
+          thumb.src = ref.image_url;
+          if (index === 0) { thumb.classList.add('active'); updateMainImage(ref); }
+          thumb.addEventListener('click', () => {
+            document.querySelectorAll('.thumb').forEach(t => t.classList.remove('active'));
+            thumb.classList.add('active');
+            updateMainImage(ref);
+          });
+          thumbContainer.appendChild(thumb);
+        });
+      }
+      modal.classList.add('show');
+    }
+
+    function updateMainImage(ref) {
+      mainRefImg.src = ref.image_url;
+      modalRefDesc.textContent = ref.description || '시술 참고용 이미지입니다.';
+    }
+
+    modalClose.addEventListener('click', () => modal.classList.remove('show'));
+    modal.addEventListener('click', (e) => { if (e.target === modal) modal.classList.remove('show'); });
+    
+    // Consent Modal Logic
+    saveBtn.addEventListener('click', () => {
+      if (!selectedStyleId || saveBtn.disabled) return;
+      consentModal.classList.add('show');
+    });
+
+    consentCancel.addEventListener('click', () => {
+      consentModal.classList.remove('show');
+    });
+
+    consentConfirm.addEventListener('click', async () => {
+      if (!consentFace.checked || !consentStorage.checked) {
+        alert("필수 항목에 동의해 주세요.");
+        return;
+      }
+
+      consentModal.classList.remove('show');
+      saveBtn.disabled = true;
+      saveBtn.textContent = "저장 중...";
+
+      try {
+        // 1. Save style selection
+        await fetch('/api/v1/analysis/selection/', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'X-CSRFToken': '{{ csrf_token }}' },
+          body: JSON.stringify({ customer_id: parseInt(customerId), style_id: selectedStyleId })
+        });
+
+        // 2. Send consultation data + consents
+        const response = await fetch('/api/v1/analysis/consult/', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'X-CSRFToken': '{{ csrf_token }}' },
+          body: JSON.stringify({ 
+            customer_id: parseInt(customerId), 
+            style_id: selectedStyleId,
+            consent_face_capture: consentFace.checked,
+            consent_service_storage: consentStorage.checked,
+            consent_marketing: consentMarketing.checked
+          })
+        });
+
+        if (response.ok) {
+          toast.textContent = `${maskName(customerName)} 고객님의 정보가 전송되었습니다.`;
+          toast.classList.add('show');
+          setTimeout(() => { window.location.href = "/"; }, 2000);
+        }
+      } catch (error) { 
+        alert("저장 실패"); 
+        saveBtn.disabled = false; 
+        saveBtn.textContent = "상담 예약하기";
+      }
+    });
+
+    fetchRecommendations();
+  })();
+</script>
+{% endblock %}

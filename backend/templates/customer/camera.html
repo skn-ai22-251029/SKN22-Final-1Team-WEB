@@ -1,0 +1,82 @@
+{% extends "layouts/base_site.html" %}
+
+{% block page_title %}MirrAI | Facial Analysis{% endblock %}
+
+{% block hero_content %}
+<div style="max-width: 1200px; margin: 0 auto; width: 100%;">
+  <p class="brand-sub" style="margin-bottom: 16px; color: var(--accent-neon);">Step 02: AI Vision Scan</p>
+  <h2 class="hero-title">당신의 페이스 라인을<br /><span>정밀하게</span> 분석합니다</h2>
+  <p class="section-copy" style="color: rgba(255, 255, 255, 0.7); max-width: 600px; margin-bottom: 0;">
+    가이드 라인에 맞춰 얼굴을 고정하면 분석이 자동으로 시작됩니다.<br />
+    가장 자연스러운 상태의 정면을 유지해 주세요.
+  </p>
+</div>
+{% endblock %}
+
+{% block content %}
+<div style="display: grid; grid-template-columns: 1fr 320px; gap: 32px; align-items: start;">
+  <div class="panel" style="padding: 12px;">
+    <div class="camera-shell" style="aspect-ratio: 4/3; width: 100%;">
+      <video id="cameraPreview" class="camera-video" autoplay playsinline muted style="width: 100%; height: 100%; object-fit: cover;"></video>
+      <div id="photoPreviewContainer" class="is-hidden" style="position: absolute; inset: 0; background: #000;">
+        <img id="photoPreview" src="" alt="Capture Preview" style="width: 100%; height: 100%; object-fit: cover;">
+      </div>
+      <div class="camera-guide" id="cameraGuide" aria-hidden="true" style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 60%; aspect-ratio: 3/4; border: 2px dashed var(--accent-neon); border-radius: 120px; box-shadow: 0 0 0 2000px rgba(0, 0, 0, 0.6);"></div>
+      <div id="cameraFallback" class="camera-fallback is-hidden" style="position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; background: rgba(0,0,0,0.8); color: white; text-align: center;">
+        <p>카메라 연결에 실패했습니다.<br />브라우저 설정을 확인해 주세요.</p>
+      </div>
+    </div>
+    
+    <div style="padding: 24px; display: flex; justify-content: space-between; align-items: center;">
+      <p id="cameraStatus" class="camera-status" style="font-weight: 600; color: var(--text-secondary);">카메라 준비 중...</p>
+      
+      <div class="button-row" id="cameraControls" style="display: flex; gap: 12px;">
+        <button id="cameraToggleBtn" class="btn btn-dark" type="button" style="height: 48px;">카메라 활성화</button>
+        <button id="captureBtn" class="btn btn-primary is-hidden" type="button" style="height: 48px;">사진 촬영</button>
+        <button id="cameraSwitchBtn" class="btn btn-dark" type="button" style="height: 48px; padding: 0 20px;">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 4v6h-6"></path><path d="M1 20v-6h6"></path><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path></svg>
+        </button>
+      </div>
+      
+      <div class="button-row is-hidden" id="previewControls" style="display: flex; gap: 12px;">
+        <button id="confirmBtn" class="btn btn-primary" type="button" style="height: 48px;">분석 시작</button>
+        <button id="retakeBtn" class="btn btn-dark" type="button" style="height: 48px;">다시 촬영</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="stack" style="gap: 24px;">
+    <div class="panel">
+      <h3 class="section-title" style="font-size: 18px;">촬영 가이드</h3>
+      <div class="stack" style="gap: 16px; margin-top: 16px;">
+        <div style="display: flex; gap: 12px; align-items: flex-start;">
+          <div style="width: 24px; height: 24px; background: var(--accent-neon); border-radius: 6px; flex-shrink: 0;"></div>
+          <p class="section-copy" style="font-size: 14px;">얼굴에 충분한 빛이 들어오는 밝은 곳에서 촬영해 주세요.</p>
+        </div>
+        <div style="display: flex; gap: 12px; align-items: flex-start;">
+          <div style="width: 24px; height: 24px; background: var(--accent-neon); border-radius: 6px; flex-shrink: 0;"></div>
+          <p class="section-copy" style="font-size: 14px;">정확한 윤곽 분석을 위해 안경이나 마스크는 벗어주세요.</p>
+        </div>
+        <div style="display: flex; gap: 12px; align-items: flex-start;">
+          <div style="width: 24px; height: 24px; background: var(--accent-neon); border-radius: 6px; flex-shrink: 0;"></div>
+          <p class="section-copy" style="font-size: 14px;">카메라와 시선을 수평으로 맞추고 정면을 응시해 주세요.</p>
+        </div>
+      </div>
+    </div>
+    
+    <a href="/customer/survey/" class="btn btn-dark" style="width: 100%; border: 1px solid var(--line); background: white; color: var(--bg-dark);">이전 단계로</a>
+  </div>
+</div>
+
+<canvas id="captureCanvas" class="is-hidden"></canvas>
+{% endblock %}
+
+{% block page_scripts %}
+<script>
+  window.MirrAIConfig = {
+    customerId: "{{ request.session.customer_id|default:'' }}",
+    csrfToken: "{{ csrf_token }}"
+  };
+</script>
+<script src="/static/customer/js/camera.js"></script>
+{% endblock %}

@@ -1,0 +1,306 @@
+{% extends "layouts/base_site.html" %}
+
+{% block page_title %}MirrAI | Style Survey{% endblock %}
+
+{% block extra_head %}
+<style>
+  .survey-options {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: 16px;
+    margin-top: 16px;
+  }
+  
+  @media (max-width: 640px) {
+    .survey-options {
+      grid-template-columns: repeat(2, 1fr);
+      gap: 12px;
+    }
+    .survey-card {
+      padding: 16px 12px;
+    }
+    .survey-label {
+      font-size: 13px;
+    }
+    .question-block {
+      padding: 20px;
+    }
+    .survey-actions {
+      flex-direction: column-reverse;
+      gap: 12px;
+    }
+    .survey-actions .btn {
+      width: 100%;
+    }
+  }
+  
+  .survey-card {
+    position: relative;
+    padding: 24px 16px;
+    border-radius: var(--radius-md);
+    background: white;
+    border: 1.5px solid var(--line);
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
+  }
+  
+  .survey-card:hover {
+    border-color: var(--accent-dark);
+    transform: translateY(-4px);
+    box-shadow: var(--shadow-main);
+  }
+  
+  .survey-card input[type="radio"] {
+    position: absolute;
+    opacity: 0;
+  }
+  
+  .survey-card.selected {
+    background: var(--bg-dark);
+    border-color: var(--accent-neon);
+    color: white;
+    box-shadow: var(--shadow-neon);
+  }
+  
+  .survey-card.selected .survey-label {
+    color: var(--accent-neon);
+  }
+  
+  .survey-label {
+    display: block;
+    font-size: 15px;
+    font-weight: 700;
+    transition: color 0.2s ease;
+  }
+
+  .question-block {
+    padding: 32px;
+    background: white;
+    border-radius: var(--radius-lg);
+    border: 1px solid var(--line);
+    box-shadow: var(--shadow-main);
+  }
+
+  .question-title {
+    font-size: 18px;
+    font-weight: 800;
+    color: var(--bg-dark);
+    margin-bottom: 8px;
+  }
+</style>
+{% endblock %}
+
+{% block hero_content %}
+<div style="max-width: 1200px; margin: 0 auto; width: 100%;">
+  <p class="brand-sub" style="margin-bottom: 16px; color: var(--accent-neon);">Step 01: Style Preferences</p>
+  <h2 class="hero-title">당신이 꿈꾸는<br /><span>스타일을</span> 알려주세요</h2>
+  <p class="section-copy" style="color: rgba(255, 255, 255, 0.7); max-width: 600px; margin-bottom: 0;">
+    선택하신 취향 데이터는 AI 분석 결과에 반영되어<br />
+    당신에게 가장 최적화된 스타일을 제안하는 밑거름이 됩니다.
+  </p>
+</div>
+{% endblock %}
+
+{% block content %}
+<form id="surveyForm" class="stack" style="gap: 32px; max-width: 900px; margin: 0 auto;" action="/api/v1/survey/" method="post" novalidate>
+  {% csrf_token %}
+  <input type="hidden" name="customer" value="{{ request.session.customer_id }}">
+  
+  <!-- 1. 희망 길이 -->
+  <div class="question-block">
+    <h3 class="question-title">Q1. 희망하시는 헤어 길이는 어느 정도인가요?</h3>
+    <div class="survey-options">
+      <label class="survey-card">
+        <input type="radio" name="target_length" value="베리쇼트" required>
+        <span class="survey-label">베리 숏컷</span>
+      </label>
+      <label class="survey-card">
+        <input type="radio" name="target_length" value="쇼트">
+        <span class="survey-label">숏컷/보브</span>
+      </label>
+      <label class="survey-card">
+        <input type="radio" name="target_length" value="미디움">
+        <span class="survey-label">중단발/태슬컷</span>
+      </label>
+      <label class="survey-card">
+        <input type="radio" name="target_length" value="세미롱">
+        <span class="survey-label">세미롱/어깨선</span>
+      </label>
+      <label class="survey-card">
+        <input type="radio" name="target_length" value="롱">
+        <span class="survey-label">롱/긴머리</span>
+      </label>
+    </div>
+  </div>
+
+  <!-- 2. 선호 분위기 -->
+  <div class="question-block">
+    <h3 class="question-title">Q2. 어떤 분위기를 연출하고 싶으신가요?</h3>
+    <div class="survey-options">
+      <label class="survey-card">
+        <input type="radio" name="target_vibe" value="시크함" required>
+        <span class="survey-label">시크/도시적</span>
+      </label>
+      <label class="survey-card">
+        <input type="radio" name="target_vibe" value="내추럴">
+        <span class="survey-label">내추럴/꾸안꾸</span>
+      </label>
+      <label class="survey-card">
+        <input type="radio" name="target_vibe" value="러블리">
+        <span class="survey-label">러블리/큐트</span>
+      </label>
+      <label class="survey-card">
+        <input type="radio" name="target_vibe" value="우아함">
+        <span class="survey-label">우아함/고급미</span>
+      </label>
+      <label class="survey-card">
+        <input type="radio" name="target_vibe" value="힙">
+        <span class="survey-label">힙/유니크</span>
+      </label>
+    </div>
+  </div>
+
+  <!-- 3. 모발 상태 -->
+  <div class="question-block">
+    <h3 class="question-title">Q3. 현재 모발 상태는 어떠신가요?</h3>
+    <div class="survey-options">
+      <label class="survey-card">
+        <input type="radio" name="scalp_type" value="건강모" required>
+        <span class="survey-label">매우 건강함</span>
+      </label>
+      <label class="survey-card">
+        <input type="radio" name="scalp_type" value="일반모">
+        <span class="survey-label">일반/건조함</span>
+      </label>
+      <label class="survey-card">
+        <input type="radio" name="scalp_type" value="손상모">
+        <span class="survey-label">염색/펌 손상</span>
+      </label>
+      <label class="survey-card">
+        <input type="radio" name="scalp_type" value="극손상모">
+        <span class="survey-label">극손상/끊어짐</span>
+      </label>
+      <label class="survey-card">
+        <input type="radio" name="scalp_type" value="탈색모">
+        <span class="survey-label">탈색/백모</span>
+      </label>
+    </div>
+  </div>
+
+  <!-- 4. 선호 컬러 -->
+  <div class="question-block">
+    <h3 class="question-title">Q4. 선호하시는 헤어 컬러 계열이 있나요?</h3>
+    <div class="survey-options">
+      <label class="survey-card">
+        <input type="radio" name="hair_colour" value="블랙" required>
+        <span class="survey-label">블랙/다크</span>
+      </label>
+      <label class="survey-card">
+        <input type="radio" name="hair_colour" value="내추럴브라운">
+        <span class="survey-label">내추럴 브라운</span>
+      </label>
+      <label class="survey-card">
+        <input type="radio" name="hair_colour" value="애쉬">
+        <span class="survey-label">애쉬/쿨톤</span>
+      </label>
+      <label class="survey-card">
+        <input type="radio" name="hair_colour" value="베이지">
+        <span class="survey-label">베이지/밀크티</span>
+      </label>
+      <label class="survey-card">
+        <input type="radio" name="hair_colour" value="비비드">
+        <span class="survey-label">비비드/포인트</span>
+      </label>
+    </div>
+  </div>
+
+  <!-- 5. 희망 예산 -->
+  <div class="question-block">
+    <h3 class="question-title">Q5. 생각하시는 시술 예산 범위는 어떻게 되나요?</h3>
+    <div class="survey-options">
+      <label class="survey-card">
+        <input type="radio" name="budget_range" value="실속형" required>
+        <span class="survey-label">5만원 이하</span>
+      </label>
+      <label class="survey-card">
+        <input type="radio" name="budget_range" value="베이직">
+        <span class="survey-label">5~10만원</span>
+      </label>
+      <label class="survey-card">
+        <input type="radio" name="budget_range" value="표준형">
+        <span class="survey-label">10~20만원</span>
+      </label>
+      <label class="survey-card">
+        <input type="radio" name="budget_range" value="프리미엄">
+        <span class="survey-label">20~30만원</span>
+      </label>
+      <label class="survey-card">
+        <input type="radio" name="budget_range" value="하이엔드">
+        <span class="survey-label">30만원 이상</span>
+      </label>
+    </div>
+  </div>
+
+  <div class="survey-actions" style="display: flex; justify-content: space-between; align-items: center; margin-top: 24px; padding: 0 12px;">
+    <a href="{% url 'customer_index' %}" class="btn btn-dark" style="background: white; color: var(--bg-dark); border: 1.5px solid var(--line);">이전 단계</a>
+    <button type="submit" id="submitBtn" class="btn btn-primary" style="min-width: 240px;">분석 및 촬영 시작</button>
+  </div>
+</form>
+
+<script>
+  (function() {
+    'use strict';
+    const form = document.getElementById('surveyForm');
+    const submitBtn = document.getElementById('submitBtn');
+
+    document.querySelectorAll('.survey-card').forEach(card => {
+      card.addEventListener('click', function() {
+        const radio = this.querySelector('input');
+        radio.checked = true;
+        document.querySelectorAll(`input[name="${radio.name}"]`).forEach(input => {
+          input.parentElement.classList.remove('selected');
+        });
+        this.classList.add('selected');
+      });
+    });
+
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const formData = new FormData(form);
+      const data = {};
+      formData.forEach((value, key) => data[key] = value);
+
+      // 필수 체크 (모든 항목 체크 여부 확인)
+      if (!data.target_length || !data.target_vibe || !data.scalp_type || !data.hair_colour || !data.budget_range) {
+        alert("모든 설문 항목에 답변해 주세요.");
+        return;
+      }
+
+      submitBtn.disabled = true;
+      submitBtn.textContent = "저장 중...";
+
+      try {
+        const response = await fetch(form.action, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': data.csrfmiddlewaretoken
+          },
+          body: JSON.stringify(data)
+        });
+        if (!response.ok) throw new Error("Survey submission failed");
+        window.location.href = "{% url 'customer_camera' %}";
+      } catch (error) {
+        alert("저장 중 오류가 발생했습니다.");
+        submitBtn.disabled = false;
+        submitBtn.textContent = "분석 및 촬영 시작";
+      }
+    });
+  })();
+</script>
+{% endblock %}

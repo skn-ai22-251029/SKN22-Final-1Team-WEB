@@ -1,0 +1,733 @@
+{% extends "layouts/base_site.html" %}
+{% load static %}
+
+{% block page_title %}MirrAI | Partner Portal{% endblock %}
+{% block brand_sub %}partner concierge{% endblock %}
+{% block badge_text %}{% if is_dashboard %}Admin Dashboard{% else %}Management Access{% endif %}{% endblock %}
+
+{% block extra_head %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<style>
+  .pin-container {
+    display: flex;
+    justify-content: center;
+    gap: 12px;
+    margin: 32px 0;
+  }
+  
+  .pin-dot {
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    background: var(--line);
+    transition: all 0.2s ease;
+  }
+  
+  .pin-dot.filled {
+    background: var(--accent);
+    transform: scale(1.2);
+    box-shadow: 0 0 12px rgba(99, 102, 241, 0.3);
+  }
+
+  .keypad {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 16px;
+    max-width: 280px;
+    margin: 0 auto;
+  }
+
+  .key {
+    aspect-ratio: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 20px;
+    font-weight: 700;
+    border-radius: 50%;
+    background: white;
+    border: 1px solid var(--line);
+    cursor: pointer;
+    transition: all 0.2s ease;
+    user-select: none;
+  }
+
+  .key:hover {
+    border-color: var(--accent);
+    color: var(--accent);
+    background: var(--accent-soft);
+  }
+
+  .key:active {
+    transform: scale(0.9);
+  }
+
+  .key.clear {
+    font-size: 14px;
+    color: var(--error);
+  }
+
+  @keyframes shake {
+    0%, 100% { transform: translateX(0); }
+    25% { transform: translateX(-8px); }
+    75% { transform: translateX(8px); }
+  }
+
+  .shake {
+    animation: shake 0.3s cubic-bezier(.36,.07,.19,.97) both;
+  }
+
+  /* Dashboard Styles */
+  .tab-btn {
+    padding: 8px 16px;
+    font-size: 14px;
+    font-weight: 600;
+    border: none;
+    background: none;
+    color: var(--text-secondary);
+    cursor: pointer;
+    border-bottom: 2px solid transparent;
+    transition: all 0.2s ease;
+  }
+
+  .tab-btn.active {
+    color: var(--accent);
+    border-bottom-color: var(--accent);
+  }
+
+  .stat-card {
+    padding: 24px;
+    border-radius: var(--radius-md);
+    background: white;
+    border: 1px solid var(--line);
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .stat-value {
+    font-size: 28px;
+    font-weight: 800;
+    color: var(--text-primary);
+  }
+
+  .stat-label {
+    font-size: 13px;
+    color: var(--text-secondary);
+    font-weight: 600;
+  }
+
+  /* Modal Styles */
+  .modal {
+    position: fixed;
+    inset: 0;
+    background: rgba(15, 23, 42, 0.8);
+    backdrop-filter: blur(8px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 2000;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.3s ease;
+  }
+
+  .modal.show {
+    opacity: 1;
+    pointer-events: auto;
+  }
+
+  .modal-content {
+    width: 90%;
+    max-width: 800px;
+    max-height: 90vh;
+    background: white;
+    border-radius: var(--radius-lg);
+    overflow: hidden;
+    position: relative;
+    box-shadow: var(--shadow-lg);
+  }
+
+  .modal-close {
+    position: absolute;
+    top: 20px;
+    right: 20px;
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.9);
+    border: none;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 24px;
+    z-index: 10;
+    box-shadow: var(--shadow-sm);
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<section class="editorial-grid">
+  <article class="main-content panel stack" id="authSection">
+    {% if is_dashboard %}
+      <div style="display: flex; justify-content: space-between; align-items: center;">
+        <p class="kicker">Admin Dashboard</p>
+        <div style="display: flex; gap: 16px;">
+          <button id="showListBtn" class="tab-btn active">고객 목록</button>
+          <button id="showReportBtn" class="tab-btn">트렌드 리포트</button>
+        </div>
+      </div>
+      <h2 class="hero-title">환영합니다,<br />{{ request.session.admin_name }}님</h2>
+      
+      <!-- List View Container -->
+      <div id="listViewContainer" class="stack" style="gap: 32px; margin-top: 40px;">
+        <div style="display: flex; justify-content: space-between; align-items: flex-end; gap: 16px; flex-wrap: wrap;">
+          <div class="stack" style="gap: 8px; flex: 1; min-width: 280px;">
+            <h3 class="section-title" style="font-size: 20px; margin: 0;">고객 관리</h3>
+            <div style="position: relative; display: flex; gap: 8px;">
+              <input type="text" id="customerSearchInput" class="form-input" placeholder="이름 또는 전화번호로 검색" style="height: 40px; padding-right: 40px;">
+              <button id="searchBtn" class="btn btn-primary" style="min-height: 40px; padding: 0 16px;">검색</button>
+            </div>
+          </div>
+          <button id="refreshBtn" class="badge" style="background: var(--accent-soft); border: none; cursor: pointer; color: var(--accent-strong); height: 28px;">새로고침</button>
+        </div>
+
+        <div id="customerListContainer" class="panel" style="padding: 0; overflow: hidden; border-radius: var(--radius-md);">
+          <!-- List View -->
+          <div id="listView">
+            <div id="loadingState" class="stack" style="padding: 40px; align-items: center; gap: 12px;">
+              <div class="camera-status loading">고객 데이터를 불러오는 중입니다...</div>
+            </div>
+
+            <div id="emptyState" class="is-hidden stack" style="padding: 40px; align-items: center; gap: 12px;">
+              <p class="section-copy">아직 등록된 고객이 없습니다.</p>
+            </div>
+
+            <div id="errorState" class="is-hidden stack" style="padding: 40px; align-items: center; gap: 12px;">
+              <p class="camera-status error">데이터를 불러오지 못했습니다. 잠시 후 다시 시도해 주세요.</p>
+            </div>
+
+            <div style="overflow-x: auto;">
+              <table id="customerTable" class="is-hidden" style="width: 100%; border-collapse: collapse; text-align: left; min-width: 500px;">
+                <thead style="background: rgba(248, 250, 252, 0.8); border-bottom: 1px solid var(--line);">
+                  <tr>
+                    <th style="padding: 16px 20px; font-size: 13px; font-weight: 600; color: var(--text-secondary);">이름</th>
+                    <th style="padding: 16px 20px; font-size: 13px; font-weight: 600; color: var(--text-secondary);">연락처</th>
+                    <th style="padding: 16px 20px; font-size: 13px; font-weight: 600; color: var(--text-secondary);">가입일</th>
+                    <th style="padding: 16px 20px; font-size: 13px; font-weight: 600; color: var(--text-secondary); text-align: right;">관리</th>
+                  </tr>
+                </thead>
+                <tbody id="customerListBody">
+                  <!-- JS dynamic insertion -->
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- Detail View -->
+          <div id="detailView" class="is-hidden stack" style="padding: 32px; gap: 24px;">
+            <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+              <div class="stack" style="gap: 4px;">
+                <p class="kicker" id="detailKicker">Customer Profile</p>
+                <h2 class="section-title" id="detailName" style="font-size: 24px;">고객명</h2>
+                <p class="section-copy" id="detailPhone">010-0000-0000</p>
+              </div>
+              <button id="backToListBtn" class="badge" style="background: var(--line); border: none; cursor: pointer; color: var(--text-secondary);">목록으로 돌아가기</button>
+            </div>
+
+            <div class="stack" style="gap: 24px;">
+              <div class="main-content stack" style="gap: 24px; grid-column: 3 / span 8;">
+                <!-- Profile Info -->
+                <div class="mini-card" style="background: white;">
+                  <h3 style="font-size: 16px; margin-bottom: 12px;">최근 취향 설문</h3>
+                  <div id="surveyContent" class="stack" style="gap: 8px;">
+                    <p class="section-copy">설문 내역이 없습니다.</p>
+                  </div>
+                </div>
+
+                <!-- Analysis History (Moved here to stay visible) -->
+                <div class="mini-card" style="background: white;">
+                  <h3 style="font-size: 16px; margin-bottom: 12px;">분석 히스토리</h3>
+                  <div id="analysisContent" class="stack" style="gap: 8px;">
+                    <p class="section-copy">분석 내역이 없습니다.</p>
+                  </div>
+                </div>
+                
+                <!-- Photo Gallery (Moved here to stay visible) -->
+                <div class="mini-card" style="background: white;">
+                  <h3 style="font-size: 16px; margin-bottom: 12px;">사진 이력 (갤러리)</h3>
+                  <div id="photoGallery" style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px;">
+                    <!-- Photos insert here -->
+                  </div>
+                  <p id="noPhotosMsg" class="section-copy is-hidden">저장된 사진이 없습니다.</p>
+                </div>
+              </div>
+
+              <!-- Purely informational guides remain here and will be hidden by CSS -->
+              <section class="side-content panel stack">
+                <p class="kicker">Security Notice</p>
+                <h2 class="section-title">보안 가이드</h2>
+                <div class="card-list">
+                  <div class="mini-card">
+                    <h3>PIN 보안</h3>
+                    <p>단순한 번호(1234, 0000 등)는 피하고 3개월마다 교체해 주세요.</p>
+                  </div>
+                </div>
+              </section>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Report View Container -->
+      <div id="reportViewContainer" class="is-hidden stack" style="gap: 32px; margin-top: 40px;">
+        <style>
+          .stat-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 20px;
+          }
+          .chart-grid {
+            display: grid;
+            grid-template-columns: 2fr 1fr;
+            gap: 24px;
+          }
+          @media (max-width: 1024px) {
+            .chart-grid {
+              grid-template-columns: 1fr;
+            }
+          }
+          @media (max-width: 768px) {
+            .stat-grid {
+              grid-template-columns: 1fr;
+              gap: 12px;
+            }
+          }
+        </style>
+        <div class="stat-grid">
+          <div class="stat-card">
+            <span class="stat-label">누적 고객 수</span>
+            <span class="stat-value" id="statTotalCustomers">-</span>
+          </div>
+          <div class="stat-card">
+            <span class="stat-label">오늘 신규 방문</span>
+            <span class="stat-value" id="statTodayNew">-</span>
+          </div>
+          <div class="stat-card">
+            <span class="stat-label">상담 전환율</span>
+            <span class="stat-value" id="statConversionRate">-%</span>
+          </div>
+        </div>
+
+        <div class="chart-grid">
+          <div class="panel">
+            <h3 class="section-title" style="font-size: 18px; margin-bottom: 24px;">일별 방문자 추이</h3>
+            <div style="height: 300px; position: relative;">
+              <canvas id="visitorChart"></canvas>
+            </div>
+          </div>
+          <div class="panel">
+            <h3 class="section-title" style="font-size: 18px; margin-bottom: 24px;">인기 스타일 분포</h3>
+            <div style="height: 300px; position: relative;">
+              <canvas id="styleChart"></canvas>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="button-row" style="margin-top: 32px;">
+        <a href="/customer/" class="btn btn-primary">상담 화면 바로가기</a>
+        <a href="/partner/signup/" class="btn btn-secondary">파트너 가입 신청</a>
+        <a href="/customer/logout/" class="btn btn-secondary">관리자 로그아웃</a>
+      </div>
+    {% else %}
+      <p class="kicker">Security Access</p>
+      <h2 class="hero-title">관리자 인증이<br />필요합니다</h2>
+      <p class="hero-copy">
+        매장 운영 관리를 위해 4자리 PIN 번호를 입력해 주세요.<br />
+        보안을 위해 정기적으로 PIN을 변경하는 것을 권장합니다.
+      </p>
+
+      <div class="pin-container" id="pinDisplay">
+        <div class="pin-dot"></div>
+        <div class="pin-dot"></div>
+        <div class="pin-dot"></div>
+        <div class="pin-dot"></div>
+      </div>
+
+      <div class="keypad">
+        <div class="key" onclick="appendPin('1')">1</div>
+        <div class="key" onclick="appendPin('2')">2</div>
+        <div class="key" onclick="appendPin('3')">3</div>
+        <div class="key" onclick="appendPin('4')">4</div>
+        <div class="key" onclick="appendPin('5')">5</div>
+        <div class="key" onclick="appendPin('6')">6</div>
+        <div class="key" onclick="appendPin('7')">7</div>
+        <div class="key" onclick="appendPin('8')">8</div>
+        <div class="key" onclick="appendPin('9')">9</div>
+        <div class="key clear" onclick="clearPin()">Clear</div>
+        <div class="key" onclick="appendPin('0')">0</div>
+        <div class="key" onclick="deletePin()">←</div>
+      </div>
+      
+      <p id="authMessage" class="camera-status" style="text-align: center; margin-top: 24px;">보안 인증을 진행해 주세요.</p>
+      <div style="text-align: center; margin-top: 16px;">
+        <a href="/partner/signup/" style="font-size: 14px; color: var(--accent); text-decoration: underline;">신규 파트너 가입 신청</a>
+      </div>
+    {% endif %}
+  </article>
+
+  <section class="side-content panel stack">
+    <p class="kicker">Security Notice</p>
+    <h2 class="section-title">보안 가이드</h2>
+    <div class="card-list">
+      <div class="mini-card">
+        <h3>PIN 보안</h3>
+        <p>단순한 번호(1234, 0000 등)는 피하고 3개월마다 교체해 주세요.</p>
+      </div>
+      <div class="mini-card">
+        <h3>로그아웃 관리</h3>
+        <p>업무 종료 시 반드시 로그아웃하여 고객 데이터 유출을 방지하세요.</p>
+      </div>
+      <div class="mini-card">
+        <h3>다중 인증</h3>
+        <p>상세 설정 메뉴에서 추가적인 생체 인증을 활성화할 수 있습니다.</p>
+      </div>
+    </div>
+  </section>
+</section>
+
+<!-- Photo Zoom Modal -->
+<div id="photoModal" class="modal">
+  <div class="modal-content" style="max-width: 600px;">
+    <button class="modal-close" id="closePhotoModal">&times;</button>
+    <img id="zoomedPhoto" src="" alt="Zoomed Photo" style="width: 100%; height: auto; display: block;">
+    <div style="padding: 16px 24px;">
+      <p id="photoMeta" class="section-copy" style="font-weight: 600;"></p>
+    </div>
+  </div>
+</div>
+
+<script>
+  let currentPin = "";
+  const maxPin = 4;
+  const dots = document.querySelectorAll('.pin-dot');
+  const messageEl = document.getElementById('authMessage');
+  const authSection = document.getElementById('authSection');
+
+  function updateDisplay() {
+    dots.forEach((dot, index) => {
+      if (index < currentPin.length) {
+        dot.classList.add('filled');
+      } else {
+        dot.classList.remove('filled');
+      }
+    });
+  }
+
+  function appendPin(num) {
+    if (currentPin.length < maxPin) {
+      currentPin += num;
+      updateDisplay();
+      
+      if (currentPin.length === maxPin) {
+        verifyPin();
+      }
+    }
+  }
+
+  function deletePin() {
+    currentPin = currentPin.slice(0, -1);
+    updateDisplay();
+    messageEl.textContent = "보안 인증을 진행해 주세요.";
+    messageEl.className = "camera-status";
+  }
+
+  function clearPin() {
+    currentPin = "";
+    updateDisplay();
+    messageEl.textContent = "보안 인증을 진행해 주세요.";
+    messageEl.className = "camera-status";
+  }
+
+  async function verifyPin() {
+    messageEl.textContent = "인증 확인 중...";
+    messageEl.className = "camera-status loading";
+
+    try {
+      const response = await fetch('/partner/verify/', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+          'X-CSRFToken': '{{ csrf_token }}'
+        },
+        body: `pin=${currentPin}`
+      });
+
+      const data = await response.json();
+
+      if (data.status === 'success') {
+        messageEl.textContent = "인증 성공! 대시보드로 이동합니다.";
+        messageEl.className = "camera-status success";
+        setTimeout(() => {
+          window.location.href = data.redirect;
+        }, 800);
+      } else {
+        handleFail();
+      }
+    } catch (error) {
+      handleFail("네트워크 오류가 발생했습니다.");
+    }
+  }
+
+  function handleFail(msg) {
+    authSection.classList.add('shake');
+    messageEl.textContent = msg || "PIN 번호가 일치하지 않습니다.";
+    messageEl.className = "camera-status error";
+    
+    setTimeout(() => {
+      authSection.classList.remove('shake');
+      clearPin();
+    }, 600);
+  }
+
+  // Dashboard Logic
+  if (document.getElementById('showListBtn')) {
+    const listViewContainer = document.getElementById('listViewContainer');
+    const reportViewContainer = document.getElementById('reportViewContainer');
+    const showListBtn = document.getElementById('showListBtn');
+    const showReportBtn = document.getElementById('showReportBtn');
+
+    // List Logic
+    const table = document.getElementById('customerTable');
+    const tbody = document.getElementById('customerListBody');
+    const loading = document.getElementById('loadingState');
+    const empty = document.getElementById('emptyState');
+    const error = document.getElementById('errorState');
+    const refreshBtn = document.getElementById('refreshBtn');
+    const searchInput = document.getElementById('customerSearchInput');
+    const searchBtn = document.getElementById('searchBtn');
+    
+    const listView = document.getElementById('listView');
+    const detailView = document.getElementById('detailView');
+    const backToListBtn = document.getElementById('backToListBtn');
+    const detailName = document.getElementById('detailName');
+    const detailPhone = document.getElementById('detailPhone');
+    const surveyContent = document.getElementById('surveyContent');
+    const analysisContent = document.getElementById('analysisContent');
+    const photoGallery = document.getElementById('photoGallery');
+    const noPhotosMsg = document.getElementById('noPhotosMsg');
+    
+    const photoModal = document.getElementById('photoModal');
+    const zoomedPhoto = document.getElementById('zoomedPhoto');
+    const photoMeta = document.getElementById('photoMeta');
+    const closePhotoModal = document.getElementById('closePhotoModal');
+
+    let searchTimeout = null;
+    let visitorChart = null;
+    let styleChart = null;
+
+    // View Switching
+    showListBtn.addEventListener('click', () => {
+      showListBtn.classList.add('active');
+      showReportBtn.classList.remove('active');
+      listViewContainer.classList.remove('is-hidden');
+      reportViewContainer.classList.add('is-hidden');
+    });
+
+    showReportBtn.addEventListener('click', () => {
+      showReportBtn.classList.add('active');
+      showListBtn.classList.remove('active');
+      reportViewContainer.classList.remove('is-hidden');
+      listViewContainer.classList.add('is-hidden');
+      fetchTrendReport();
+    });
+
+    async function fetchCustomers(query = '') {
+      loading.classList.remove('is-hidden');
+      table.classList.add('is-hidden');
+      empty.classList.add('is-hidden');
+      error.classList.add('is-hidden');
+      tbody.innerHTML = '';
+
+      try {
+        const url = query ? `/api/v1/customers/?q=${encodeURIComponent(query)}` : '/api/v1/customers/';
+        const response = await fetch(url);
+        if (!response.ok) throw new Error('Fetch failed');
+        const data = await response.json();
+        loading.classList.add('is-hidden');
+        if (data.length === 0) {
+          const emptyMsg = query ? `"${query}"에 대한 검색 결과가 없습니다.` : '아직 등록된 고객이 없습니다.';
+          empty.querySelector('p').textContent = emptyMsg;
+          empty.classList.remove('is-hidden');
+        } else {
+          data.forEach(customer => {
+            const date = new Date(customer.created_at).toLocaleDateString('ko-KR', {
+              year: 'numeric', month: '2-digit', day: '2-digit'
+            });
+            const tr = document.createElement('tr');
+            tr.style.borderBottom = '1px solid var(--line)';
+            tr.innerHTML = `
+              <td style="padding: 16px 20px; font-size: 14px; font-weight: 600;">${customer.name}</td>
+              <td style="padding: 16px 20px; font-size: 14px; color: var(--text-secondary);">${customer.phone}</td>
+              <td style="padding: 16px 20px; font-size: 14px; color: var(--text-secondary);">${date}</td>
+              <td style="padding: 16px 20px; text-align: right;">
+                <button class="badge detail-btn" data-id="${customer.id}" style="background: white; border: 1px solid var(--line); cursor: pointer;">상세보기</button>
+              </td>
+            `;
+            tbody.appendChild(tr);
+          });
+          table.classList.remove('is-hidden');
+          document.querySelectorAll('.detail-btn').forEach(btn => {
+            btn.addEventListener('click', () => showDetail(btn.dataset.id));
+          });
+        }
+      } catch (err) {
+        loading.classList.add('is-hidden');
+        error.classList.remove('is-hidden');
+      }
+    }
+
+    async function showDetail(id) {
+      listView.classList.add('is-hidden');
+      detailView.classList.remove('is-hidden');
+      detailName.textContent = "불러오는 중...";
+      surveyContent.innerHTML = '<p class="section-copy">데이터를 불러오고 있습니다...</p>';
+      analysisContent.innerHTML = '<p class="section-copy">데이터를 불러오고 있습니다...</p>';
+      try {
+        const response = await fetch(`/api/v1/customers/${id}/`);
+        const customer = await response.json();
+        detailName.textContent = customer.name;
+        detailPhone.textContent = customer.phone;
+        if (customer.survey) {
+          const s = customer.survey;
+          surveyContent.innerHTML = `
+            <div class="mini-card" style="padding: 12px; background: var(--bg);">
+              <p class="section-copy"><strong>희망 길이:</strong> ${s.target_length || '미지정'}</p>
+              <p class="section-copy"><strong>선호 분위기:</strong> ${s.target_vibe || '미지정'}</p>
+              <p class="section-copy"><strong>모발 상태:</strong> ${s.scalp_type || '미지정'}</p>
+              <p class="section-copy"><strong>선호 컬러:</strong> ${s.hair_colour || '미지정'}</p>
+            </div>
+          `;
+        } else { surveyContent.innerHTML = '<p class="section-copy">설문 내역이 없습니다.</p>'; }
+        if (customer.face_analyses && customer.face_analyses.length > 0) {
+          analysisContent.innerHTML = customer.face_analyses.map(a => `
+            <div class="mini-card" style="padding: 12px; background: var(--bg);">
+              <p class="section-copy"><strong>얼굴형:</strong> ${a.face_shape}</p>
+              <p class="section-copy"><strong>황금비 점수:</strong> ${a.golden_ratio_score || '-'}</p>
+              <p class="section-copy" style="font-size: 12px; opacity: 0.7;">${new Date(a.created_at).toLocaleString()}</p>
+            </div>
+          `).join('');
+        } else { analysisContent.innerHTML = '<p class="section-copy">분석 내역이 없습니다.</p>'; }
+        photoGallery.innerHTML = '';
+        const allPhotos = [
+          ...(customer.captures || []).map(c => ({ url: c.processed_path, date: c.created_at, type: '원본/전처리' })),
+          ...(customer.face_analyses || []).map(a => ({ url: a.image_url, date: a.created_at, type: '분석용' }))
+        ].sort((a, b) => new Date(b.date) - new Date(a.date));
+        if (allPhotos.length > 0) {
+          noPhotosMsg.classList.add('is-hidden');
+          allPhotos.forEach(photo => {
+            const img = document.createElement('img');
+            img.src = photo.url.startsWith('http') ? photo.url : `/media${photo.url.split('media').pop()}`;
+            img.className = 'thumb';
+            img.style.width = '100%';
+            img.style.aspectRatio = '1';
+            img.style.objectFit = 'cover';
+            img.style.cursor = 'pointer';
+            img.addEventListener('click', () => zoomPhoto(img.src, `${photo.type} - ${new Date(photo.date).toLocaleString()}`));
+            photoGallery.appendChild(img);
+          });
+        } else { noPhotosMsg.classList.remove('is-hidden'); }
+      } catch (err) { detailName.textContent = "오류 발생"; }
+    }
+
+    function zoomPhoto(src, meta) {
+      zoomedPhoto.src = src;
+      photoMeta.textContent = meta;
+      photoModal.classList.add('show');
+    }
+    closePhotoModal.addEventListener('click', () => photoModal.classList.remove('show'));
+    photoModal.addEventListener('click', (e) => { if (e.target === photoModal) photoModal.classList.remove('show'); });
+    function hideDetail() {
+      detailView.classList.add('is-hidden');
+      listView.classList.remove('is-hidden');
+    }
+    backToListBtn.addEventListener('click', hideDetail);
+    refreshBtn.addEventListener('click', () => { searchInput.value = ''; fetchCustomers(); });
+    searchBtn.addEventListener('click', () => { fetchCustomers(searchInput.value); });
+    searchInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') fetchCustomers(searchInput.value); });
+    searchInput.addEventListener('input', () => {
+      clearTimeout(searchTimeout);
+      searchTimeout = setTimeout(() => fetchCustomers(searchInput.value), 500);
+    });
+
+    // Trend Report Logic
+    async function fetchTrendReport() {
+      try {
+        const response = await fetch('/api/v1/analysis/report/');
+        const data = await response.json();
+        
+        // Summary
+        document.getElementById('statTotalCustomers').textContent = data.summary.total_customers;
+        document.getElementById('statTodayNew').textContent = data.summary.new_today;
+        document.getElementById('statConversionRate').textContent = `${data.summary.conversion_rate}%`;
+
+        renderCharts(data);
+      } catch (error) {
+        console.error("Report fetch error:", error);
+      }
+    }
+
+    function renderCharts(data) {
+      // Visitor Chart
+      const ctxVisitor = document.getElementById('visitorChart').getContext('2d');
+      if (visitorChart) visitorChart.destroy();
+      visitorChart = new Chart(ctxVisitor, {
+        type: 'line',
+        data: {
+          labels: data.visitor_stats.map(s => s.date),
+          datasets: [{
+            label: '일별 방문자',
+            data: data.visitor_stats.map(s => s.count),
+            borderColor: '#6366f1',
+            backgroundColor: 'rgba(99, 102, 241, 0.1)',
+            fill: true,
+            tension: 0.4
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: { legend: { display: false } },
+          scales: { y: { beginAtZero: true, grid: { color: '#f1f5f9' } }, x: { grid: { display: false } } }
+        }
+      });
+
+      // Style Distribution Chart
+      const ctxStyle = document.getElementById('styleChart').getContext('2d');
+      if (styleChart) styleChart.destroy();
+      styleChart = new Chart(ctxStyle, {
+        type: 'doughnut',
+        data: {
+          labels: data.style_distribution.map(s => s.name),
+          datasets: [{
+            data: data.style_distribution.map(s => s.value),
+            backgroundColor: ['#6366f1', '#f43f5e', '#10b981', '#f59e0b', '#8b5cf6'],
+            borderWidth: 0
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: { legend: { position: 'bottom', labels: { usePointStyle: true, padding: 20 } } },
+          cutout: '70%'
+        }
+      });
+    }
+
+    fetchCustomers();
+  }
+</script>
+{% endblock %}
