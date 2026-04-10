@@ -24,7 +24,6 @@ CANONICAL_TABLES = {
     "analyses": "face_analyses",
     "captures": "capture_records",
     "surveys": "surveys",
-    "clients": "clients",
     "designers": "designers",
     "admins": "admin_accounts",
     "styles": "styles",
@@ -170,7 +169,7 @@ class Command(BaseCommand):
         deleted_analyses = self._count_table_rows(CANONICAL_TABLES["analyses"], preserve["analyses"])
         deleted_captures = self._count_table_rows(CANONICAL_TABLES["captures"], preserve["captures"])
         deleted_surveys = self._count_table_rows(CANONICAL_TABLES["surveys"], preserve["surveys"])
-        deleted_clients = self._count_table_rows(CANONICAL_TABLES["clients"], preserve["clients"])
+        deleted_clients = 0
         deleted_designers = self._count_table_rows(CANONICAL_TABLES["designers"], preserve["designers"])
         deleted_admins = self._count_table_rows(CANONICAL_TABLES["admins"], preserve["admins"])
         deleted_styles = self._count_table_rows(CANONICAL_TABLES["styles"], preserve["styles"])
@@ -183,7 +182,6 @@ class Command(BaseCommand):
                 self._delete_table_rows(CANONICAL_TABLES["analyses"], preserve["analyses"])
                 self._delete_table_rows(CANONICAL_TABLES["captures"], preserve["captures"])
                 self._delete_table_rows(CANONICAL_TABLES["surveys"], preserve["surveys"])
-                self._delete_table_rows(CANONICAL_TABLES["clients"], preserve["clients"])
                 self._delete_table_rows(CANONICAL_TABLES["designers"], preserve["designers"])
                 self._delete_table_rows(CANONICAL_TABLES["admins"], preserve["admins"])
                 self._delete_table_rows(CANONICAL_TABLES["styles"], preserve["styles"])
@@ -213,6 +211,8 @@ class Command(BaseCommand):
         )
 
     def _count_table_rows(self, table_name: str, preserve_ids: set[int]) -> int:
+        if table_name not in self._existing_legacy_tables():
+            return 0
         sql = f"SELECT COUNT(*) FROM {table_name}"
         params: list[int] = []
         if preserve_ids:
@@ -225,6 +225,8 @@ class Command(BaseCommand):
         return int(row[0] if row else 0)
 
     def _delete_table_rows(self, table_name: str, preserve_ids: set[int]) -> int:
+        if table_name not in self._existing_legacy_tables():
+            return 0
         sql = f"DELETE FROM {table_name}"
         params: list[int] = []
         if preserve_ids:

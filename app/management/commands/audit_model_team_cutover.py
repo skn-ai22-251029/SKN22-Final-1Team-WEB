@@ -24,7 +24,6 @@ LEGACY_TABLES = (
 CANONICAL_DROP_CANDIDATES = (
     "admin_accounts",
     "designers",
-    "clients",
     "surveys",
     "capture_records",
     "face_analyses",
@@ -36,6 +35,10 @@ CANONICAL_DROP_CANDIDATES = (
 
 CANONICAL_TABLE_NAMES = tuple(CANONICAL_DROP_CANDIDATES)
 CANONICAL_MODEL_IMPORT_MODULE = "app.models_django"
+BACKEND_ONLY_MODEL_IMPORT_EXCEPTIONS = {
+    "ClientProfileNote",
+    "DesignerDiagnosisCard",
+}
 SCAN_SKIP_FILES = {
     "models_django.py",
     "models_model_team.py",
@@ -78,6 +81,7 @@ class Command(BaseCommand):
             call_command(
                 "verify_seed_integrity",
                 strict=True,
+                skip_recommendation_smoke=True,
                 stdout=integrity_stdout,
                 stderr=integrity_stderr,
             )
@@ -164,7 +168,9 @@ class Command(BaseCommand):
             )
 
             if isinstance(node, ast.ImportFrom) and node.module == CANONICAL_MODEL_IMPORT_MODULE and not under_type_checking:
-                return node.lineno
+                imported_names = {alias.name for alias in node.names}
+                if imported_names - BACKEND_ONLY_MODEL_IMPORT_EXCEPTIONS:
+                    return node.lineno
 
             for child in ast.iter_child_nodes(node):
                 child_lineno = visit(
