@@ -79,7 +79,12 @@ class Command(BaseCommand):
         parser.add_argument(
             "--strict",
             action="store_true",
-            help="Fail if any expected count or per-client expectation is missing.",
+            help="Fail if required runtime bridge integrity is missing.",
+        )
+        parser.add_argument(
+            "--exact-seed-fixture",
+            action="store_true",
+            help="Require exact reusable seed fixture counts. Use only against a seed-only database.",
         )
         parser.add_argument(
             "--skip-recommendation-smoke",
@@ -89,6 +94,7 @@ class Command(BaseCommand):
 
     def handle(self, *args, **options):
         strict = bool(options["strict"])
+        exact_seed_fixture = bool(options["exact_seed_fixture"])
         skip_recommendation_smoke = bool(options["skip_recommendation_smoke"])
         problems: list[str] = []
         if not _legacy_tables_present():
@@ -138,10 +144,11 @@ class Command(BaseCommand):
         else:
             counts = {key: 0 for key in EXPECTED_COUNTS}
 
-        for label, expected in EXPECTED_COUNTS.items():
-            actual = counts.get(label, 0)
-            if actual != expected:
-                problems.append(f"{label} mismatch: expected {expected}, got {actual}")
+        if exact_seed_fixture:
+            for label, expected in EXPECTED_COUNTS.items():
+                actual = counts.get(label, 0)
+                if actual != expected:
+                    problems.append(f"{label} mismatch: expected {expected}, got {actual}")
 
         if shop:
             for phone in EXPECTED_CLIENT_PHONES:
@@ -152,6 +159,12 @@ class Command(BaseCommand):
             client = get_client_by_phone(phone=expectation.phone)
             if not client:
                 continue
+            if not getattr(client, "id", None):
+                problems.append(f"{expectation.phone} backend client id is missing")
+            if not getattr(client, "legacy_client_id", None):
+                problems.append(f"{expectation.phone} legacy client id is missing")
+            if not getattr(client, "shop_id", None):
+                problems.append(f"{expectation.phone} backend shop ref is missing")
 
             actual_counts = {
                 "captures": LegacyClientAnalysis.objects.filter(backend_client_ref_id=client.id).count(),
@@ -173,32 +186,33 @@ class Command(BaseCommand):
                 ).count(),
             }
 
-            if actual_counts["captures"] != expectation.captures:
-                problems.append(
-                    f"{client.phone} capture mismatch: expected {expectation.captures}, got {actual_counts['captures']}"
-                )
-            if actual_counts["analyses"] != expectation.analyses:
-                problems.append(
-                    f"{client.phone} analysis mismatch: expected {expectation.analyses}, got {actual_counts['analyses']}"
-                )
-            if actual_counts["generated_recommendations"] != expectation.generated_recommendations:
-                problems.append(
-                    f"{client.phone} generated recommendation mismatch: expected {expectation.generated_recommendations}, got {actual_counts['generated_recommendations']}"
-                )
-            if actual_counts["chosen_recommendations"] != expectation.chosen_recommendations:
-                problems.append(
-                    f"{client.phone} chosen recommendation mismatch: expected {expectation.chosen_recommendations}, got {actual_counts['chosen_recommendations']}"
-                )
-            if actual_counts["style_selections"] != expectation.style_selections:
-                problems.append(
-                    f"{client.phone} style selection mismatch: expected {expectation.style_selections}, got {actual_counts['style_selections']}"
-                )
-            if actual_counts["active_consultations"] != expectation.active_consultations:
-                problems.append(
-                    f"{client.phone} active consultation mismatch: expected {expectation.active_consultations}, got {actual_counts['active_consultations']}"
-                )
+            if exact_seed_fixture:
+                if actual_counts["captures"] != expectation.captures:
+                    problems.append(
+                        f"{client.phone} capture mismatch: expected {expectation.captures}, got {actual_counts['captures']}"
+                    )
+                if actual_counts["analyses"] != expectation.analyses:
+                    problems.append(
+                        f"{client.phone} analysis mismatch: expected {expectation.analyses}, got {actual_counts['analyses']}"
+                    )
+                if actual_counts["generated_recommendations"] != expectation.generated_recommendations:
+                    problems.append(
+                        f"{client.phone} generated recommendation mismatch: expected {expectation.generated_recommendations}, got {actual_counts['generated_recommendations']}"
+                    )
+                if actual_counts["chosen_recommendations"] != expectation.chosen_recommendations:
+                    problems.append(
+                        f"{client.phone} chosen recommendation mismatch: expected {expectation.chosen_recommendations}, got {actual_counts['chosen_recommendations']}"
+                    )
+                if actual_counts["style_selections"] != expectation.style_selections:
+                    problems.append(
+                        f"{client.phone} style selection mismatch: expected {expectation.style_selections}, got {actual_counts['style_selections']}"
+                    )
+                if actual_counts["active_consultations"] != expectation.active_consultations:
+                    problems.append(
+                        f"{client.phone} active consultation mismatch: expected {expectation.active_consultations}, got {actual_counts['active_consultations']}"
+                    )
 
-            if not skip_recommendation_smoke:
+            if exact_seed_fixture and not skip_recommendation_smoke:
                 if expectation.has_current_recommendations:
                     payload = get_current_recommendations(client)
                     if not payload.get("items"):
@@ -209,16 +223,19 @@ class Command(BaseCommand):
                         problems.append(f"{client.phone} should not have current recommendations yet")
 
         self.stdout.write(f"seed integrity summary: source=legacy counts={counts}")
+        if not exact_seed_fixture:
+            self.stdout.write("seed integrity exact fixture check: skipped")
         if skip_recommendation_smoke:
             self.stdout.write("seed integrity recommendation smoke: skipped")
         else:
-            trend_payload = get_trend_recommendations(days=30, client=get_client_by_phone(phone=EXPECTED_CLIENT_PHONES[0]))
-            if not trend_payload.get("items"):
-                problems.append("trend recommendations are empty")
-            self.stdout.write(
-                "seed integrity trend items: "
-                f"{len(trend_payload.get('items', []))} / scope={trend_payload.get('trend_scope')}"
-            )
+            if exact_seed_fixture:
+                trend_payload = get_trend_recommendations(days=30, client=get_client_by_phone(phone=EXPECTED_CLIENT_PHONES[0]))
+                if not trend_payload.get("items"):
+                    problems.append("trend recommendations are empty")
+                self.stdout.write(
+                    "seed integrity trend items: "
+                    f"{len(trend_payload.get('items', []))} / scope={trend_payload.get('trend_scope')}"
+                )
 
         if problems:
             for problem in problems:

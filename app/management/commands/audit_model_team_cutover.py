@@ -86,15 +86,15 @@ class Command(BaseCommand):
                 stderr=integrity_stderr,
             )
         except CommandError as exc:
-            self.stdout.write(self.style.ERROR("legacy strict integrity: failed"))
+            self.stdout.write(self.style.ERROR("runtime bridge integrity: failed"))
             if integrity_stdout.getvalue().strip():
                 self.stdout.write(integrity_stdout.getvalue().strip())
             if integrity_stderr.getvalue().strip():
                 self.stdout.write(integrity_stderr.getvalue().strip())
             if strict:
-                raise CommandError("Cutover audit failed during legacy strict integrity check.") from exc
+                raise CommandError("Cutover audit failed during runtime bridge integrity check.") from exc
         else:
-            self.stdout.write(self.style.SUCCESS("legacy strict integrity: passed"))
+            self.stdout.write(self.style.SUCCESS("runtime bridge integrity: passed"))
             if integrity_stdout.getvalue().strip():
                 self.stdout.write(integrity_stdout.getvalue().strip())
 
