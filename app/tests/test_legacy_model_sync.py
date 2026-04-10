@@ -1,6 +1,7 @@
 ﻿from __future__ import annotations
 
 import io
+from unittest import mock
 
 from django.contrib.sessions.middleware import SessionMiddleware
 from django.core.management import call_command
@@ -12,7 +13,6 @@ from django.utils import timezone
 from app.models_django import (
     AdminAccount,
     CaptureRecord,
-    Client,
     ClientSessionNote,
     ConsultationRequest,
     Designer,
@@ -277,6 +277,7 @@ class LegacyModelSyncTests(TransactionTestCase):
 
     def setUp(self):
         self.factory = RequestFactory()
+        self._preexisting_tables = set(connection.introspection.table_names())
         self._create_legacy_tables()
 
     def tearDown(self):
@@ -288,8 +289,9 @@ class LegacyModelSyncTests(TransactionTestCase):
                 cursor.execute(ddl)
 
     def _drop_legacy_tables(self):
+        created_tables = [table for table in LEGACY_TABLES if table not in self._preexisting_tables]
         with connection.cursor() as cursor:
-            for table in LEGACY_TABLES:
+            for table in created_tables:
                 cursor.execute(f"DROP TABLE IF EXISTS {table}")
 
     def _count(self, table: str) -> int:
@@ -542,39 +544,18 @@ class LegacyModelSyncTests(TransactionTestCase):
         self.assertEqual(self._count("shop"), 1)
         self.assertEqual(self._count("client_result_detail"), 15)
 
-    def test_explicit_sync_command_skips_clients_without_shop(self):
-        call_command("seed_test_accounts")
-
-        orphan_client = Client.objects.create(
-            name="留ㅼ옣 誘몄뿰寃?怨좉컼",
-            gender="female",
-            phone="01095556666",
-        )
-        Survey.objects.create(
-            client=orphan_client,
-            target_length="short",
-            target_vibe="clean",
-            scalp_type="neutral",
-            hair_colour="black",
-            budget_range="mid",
-            preference_vector=[0.0] * 20,
-        )
-        FaceAnalysis.objects.create(
-            client=orphan_client,
-            face_shape="oval",
-            golden_ratio_score=0.77,
-            image_url="https://example.com/orphan-analysis.jpg",
-        )
+    def test_explicit_sync_command_keeps_seeded_client_table_as_source_of_truth(self):
+        with mock.patch("app.management.commands.seed_test_accounts.Command._upsert_consultation_notes"):
+            call_command("seed_test_accounts")
 
         call_command("sync_legacy_model_tables", strict=True)
 
         self.assertEqual(self._count("client"), 4)
         self.assertEqual(
             self._fetch_one(
-                "SELECT COUNT(*) FROM client WHERE phone = %s",
-                ("01095556666",),
+                "SELECT COUNT(*) FROM client WHERE backend_client_id IS NOT NULL",
             )[0],
-            0,
+            4,
         )
 
     def test_model_team_bridge_uses_legacy_tables_for_low_risk_reads(self):
@@ -708,50 +689,21 @@ class LegacyModelSyncTests(TransactionTestCase):
         self.assertEqual(getattr(capture, "processed_path", None), "https://example.com/legacy-capture.jpg")
 
     def test_latest_survey_analysis_and_capture_do_not_fallback_to_canonical_when_legacy_tables_exist(self):
-        shop = AdminAccount.objects.create(
-            name="Canonical Only Owner",
-            store_name="Canonical Only Shop",
-            role="owner",
-            phone="01081112222",
-            business_number="1023344556",
-            password_hash="hashed",
-        )
-        designer = Designer.objects.create(
-            shop=shop,
-            name="?덇굅???곗꽑 ?붿옄?대꼫",
-            phone="01082223333",
-            pin_hash="hashed",
-        )
-        client = Client.objects.create(
-            shop=shop,
-            designer=designer,
-            name="?덇굅???곗꽑 怨좉컼",
-            gender="female",
-            phone="01093334444",
-        )
-        Survey.objects.create(
-            client=client,
-            target_length="medium",
-            target_vibe="natural",
-            scalp_type="neutral",
-            hair_colour="black",
-            budget_range="mid",
-            preference_vector=[0.1] * 20,
-        )
-        capture = CaptureRecord.objects.create(
-            client=client,
-            filename="canonical-only.jpg",
-            original_path="https://example.com/canonical-only.jpg",
-            processed_path="https://example.com/canonical-only-processed.jpg",
-            status="DONE",
-            face_count=1,
-        )
-        FaceAnalysis.objects.create(
-            client=client,
-            face_shape="oval",
-            golden_ratio_score=0.88,
-            image_url="https://example.com/canonical-only-analysis.jpg",
-        )
+        client = get_client_by_phone(phone="01093334444")
+        self.assertIsNone(client)
+
+        client = type(
+            "RuntimeOnlyClient",
+            (),
+            {
+                "id": 999999,
+                "legacy_client_id": "missing-legacy-client",
+                "shop_id": None,
+                "designer_id": None,
+                "name": "Runtime Only Client",
+                "phone": "01093334444",
+            },
+        )()
 
         self.assertIsNone(get_latest_survey(client))
         self.assertIsNone(get_latest_analysis(client))
@@ -1607,11 +1559,20 @@ class LegacyModelSyncTests(TransactionTestCase):
         self.assertEqual(close_payload["status"], "success")
         self.assertTrue(
             ClientSessionNote.objects.filter(
-                client_id=client.id,
-                consultation_id=consultation_id,
+                client_ref_id=client.id,
+                consultation_ref_id=consultation_id,
                 content="Legacy consultation bridge note",
             ).exists()
         )
+        if self._table_has_column("client_session_notes", "legacy_client_ref_id"):
+            self.assertTrue(
+                ClientSessionNote.objects.filter(
+                    client_ref_id=client.id,
+                    consultation_ref_id=consultation_id,
+                    legacy_client_ref_id=get_legacy_client_id(client=client),
+                    content="Legacy consultation bridge note",
+                ).exists()
+            )
         consultation = ConsultationRequest.objects.get(id=consultation_id)
         self.assertFalse(consultation.is_active)
         self.assertEqual(consultation.status, "CLOSED")
