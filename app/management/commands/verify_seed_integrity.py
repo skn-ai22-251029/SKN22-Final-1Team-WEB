@@ -81,9 +81,15 @@ class Command(BaseCommand):
             action="store_true",
             help="Fail if any expected count or per-client expectation is missing.",
         )
+        parser.add_argument(
+            "--skip-recommendation-smoke",
+            action="store_true",
+            help="Skip recommendation payload smoke checks that can materialize missing recommendation rows.",
+        )
 
     def handle(self, *args, **options):
         strict = bool(options["strict"])
+        skip_recommendation_smoke = bool(options["skip_recommendation_smoke"])
         problems: list[str] = []
         if not _legacy_tables_present():
             message = "model-team legacy tables are missing"
@@ -192,24 +198,27 @@ class Command(BaseCommand):
                     f"{client.phone} active consultation mismatch: expected {expectation.active_consultations}, got {actual_counts['active_consultations']}"
                 )
 
-            if expectation.has_current_recommendations:
-                payload = get_current_recommendations(client)
-                if not payload.get("items"):
-                    problems.append(f"{client.phone} current recommendations are empty")
-            else:
-                payload = get_current_recommendations(client)
-                if payload.get("items"):
-                    problems.append(f"{client.phone} should not have current recommendations yet")
-
-        trend_payload = get_trend_recommendations(days=30, client=get_client_by_phone(phone=EXPECTED_CLIENT_PHONES[0]))
-        if not trend_payload.get("items"):
-            problems.append("trend recommendations are empty")
+            if not skip_recommendation_smoke:
+                if expectation.has_current_recommendations:
+                    payload = get_current_recommendations(client)
+                    if not payload.get("items"):
+                        problems.append(f"{client.phone} current recommendations are empty")
+                else:
+                    payload = get_current_recommendations(client)
+                    if payload.get("items"):
+                        problems.append(f"{client.phone} should not have current recommendations yet")
 
         self.stdout.write(f"seed integrity summary: source=legacy counts={counts}")
-        self.stdout.write(
-            "seed integrity trend items: "
-            f"{len(trend_payload.get('items', []))} / scope={trend_payload.get('trend_scope')}"
-        )
+        if skip_recommendation_smoke:
+            self.stdout.write("seed integrity recommendation smoke: skipped")
+        else:
+            trend_payload = get_trend_recommendations(days=30, client=get_client_by_phone(phone=EXPECTED_CLIENT_PHONES[0]))
+            if not trend_payload.get("items"):
+                problems.append("trend recommendations are empty")
+            self.stdout.write(
+                "seed integrity trend items: "
+                f"{len(trend_payload.get('items', []))} / scope={trend_payload.get('trend_scope')}"
+            )
 
         if problems:
             for problem in problems:
