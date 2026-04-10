@@ -34,7 +34,7 @@ CANONICAL_TABLES = {
 class CleanupSummary:
     preserved_admins: int
     preserved_designers: int
-    preserved_clients: int
+    preserved_client_records: int
     preserved_surveys: int
     preserved_captures: int
     preserved_analyses: int
@@ -49,7 +49,7 @@ class CleanupSummary:
     deleted_analyses: int
     deleted_captures: int
     deleted_surveys: int
-    deleted_clients: int
+    deleted_client_records: int
     deleted_designers: int
     deleted_admins: int
     deleted_styles: int
@@ -91,7 +91,7 @@ class Command(BaseCommand):
         )
         self.stdout.write(
             "preserved: "
-            f"admins={summary.preserved_admins}, designers={summary.preserved_designers}, clients={summary.preserved_clients}, "
+            f"admins={summary.preserved_admins}, designers={summary.preserved_designers}, client_records={summary.preserved_client_records}, "
             f"surveys={summary.preserved_surveys}, captures={summary.preserved_captures}, analyses={summary.preserved_analyses}, "
             f"recommendations={summary.preserved_recommendations}, selections={summary.preserved_selections}, "
             f"consultations={summary.preserved_consultations}, styles={summary.preserved_styles}"
@@ -100,7 +100,7 @@ class Command(BaseCommand):
             "deleted: "
             f"notes={summary.deleted_notes}, consultations={summary.deleted_consultations}, selections={summary.deleted_selections}, "
             f"recommendations={summary.deleted_recommendations}, analyses={summary.deleted_analyses}, captures={summary.deleted_captures}, "
-            f"surveys={summary.deleted_surveys}, clients={summary.deleted_clients}, designers={summary.deleted_designers}, "
+            f"surveys={summary.deleted_surveys}, client_records={summary.deleted_client_records}, designers={summary.deleted_designers}, "
             f"admins={summary.deleted_admins}, styles={summary.deleted_styles}"
         )
 
@@ -125,7 +125,7 @@ class Command(BaseCommand):
     def _build_preserve_sets(self) -> dict[str, set[int]]:
         preserve_admins = self._fetch_ids(table="shop", column="backend_admin_id")
         preserve_designers = self._fetch_ids(table="designer", column="backend_designer_id")
-        preserve_clients = self._fetch_ids(table="client", column="backend_client_id")
+        preserve_client_records = self._fetch_ids(table="client", column="backend_client_id")
         preserve_surveys = self._fetch_ids(table="client_survey", column="backend_survey_id")
         preserve_analyses = self._fetch_ids(table="client_analysis", column="backend_analysis_id")
         preserve_captures = self._fetch_ids(table="client_analysis", column="backend_capture_record_id")
@@ -137,7 +137,7 @@ class Command(BaseCommand):
         return {
             "admins": preserve_admins,
             "designers": preserve_designers,
-            "clients": preserve_clients,
+            "client_records": preserve_client_records,
             "surveys": preserve_surveys,
             "captures": preserve_captures,
             "analyses": preserve_analyses,
@@ -151,7 +151,7 @@ class Command(BaseCommand):
         return {
             "admins": set(),
             "designers": set(),
-            "clients": set(),
+            "client_records": set(),
             "surveys": set(),
             "captures": set(),
             "analyses": set(),
@@ -169,7 +169,7 @@ class Command(BaseCommand):
         deleted_analyses = self._count_table_rows(CANONICAL_TABLES["analyses"], preserve["analyses"])
         deleted_captures = self._count_table_rows(CANONICAL_TABLES["captures"], preserve["captures"])
         deleted_surveys = self._count_table_rows(CANONICAL_TABLES["surveys"], preserve["surveys"])
-        deleted_clients = 0
+        deleted_client_records = 0
         deleted_designers = self._count_table_rows(CANONICAL_TABLES["designers"], preserve["designers"])
         deleted_admins = self._count_table_rows(CANONICAL_TABLES["admins"], preserve["admins"])
         deleted_styles = self._count_table_rows(CANONICAL_TABLES["styles"], preserve["styles"])
@@ -189,7 +189,7 @@ class Command(BaseCommand):
         return CleanupSummary(
             preserved_admins=len(preserve["admins"]),
             preserved_designers=len(preserve["designers"]),
-            preserved_clients=len(preserve["clients"]),
+            preserved_client_records=len(preserve["client_records"]),
             preserved_surveys=len(preserve["surveys"]),
             preserved_captures=len(preserve["captures"]),
             preserved_analyses=len(preserve["analyses"]),
@@ -204,7 +204,7 @@ class Command(BaseCommand):
             deleted_analyses=deleted_analyses,
             deleted_captures=deleted_captures,
             deleted_surveys=deleted_surveys,
-            deleted_clients=deleted_clients,
+            deleted_client_records=deleted_client_records,
             deleted_designers=deleted_designers,
             deleted_admins=deleted_admins,
             deleted_styles=deleted_styles,

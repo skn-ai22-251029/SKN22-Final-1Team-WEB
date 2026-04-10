@@ -108,6 +108,15 @@ class Command(BaseCommand):
         self.stdout.write("")
         self.stdout.write("backend-only exceptions:")
         self.stdout.write(f"- client_session_notes: rows={self._table_row_count('client_session_notes')} (preserve)")
+        note_bridge_stats = self._client_session_notes_bridge_stats(existing_tables=existing_tables)
+        if note_bridge_stats["storage_ready"]:
+            self.stdout.write(
+                f"- client_session_notes bridge readiness: column_ready=True pending_backfill={note_bridge_stats['pending_backfill']} fk_count={note_bridge_stats['fk_count']}"
+            )
+        else:
+            self.stdout.write(
+                self.style.WARNING("- client_session_notes bridge readiness: column_ready=False pending_backfill=unknown")
+            )
 
         self.stdout.write("")
         self.stdout.write("code blockers:")
@@ -156,6 +165,43 @@ class Command(BaseCommand):
             cursor.execute(f"SELECT COUNT(*) FROM {table_name}")
             row = cursor.fetchone()
         return int(row[0] if row else 0)
+
+    def _table_has_column(self, *, table_name: str, column_name: str) -> bool:
+        with connection.cursor() as cursor:
+            columns = {
+                column.name
+                for column in connection.introspection.get_table_description(cursor, table_name)
+            }
+        return column_name in columns
+
+    def _client_session_notes_bridge_stats(self, *, existing_tables: set[str]) -> dict[str, int | bool]:
+        if "client_session_notes" not in existing_tables:
+            return {"storage_ready": False, "pending_backfill": 0, "fk_count": 0}
+        if not self._table_has_column(table_name="client_session_notes", column_name="legacy_client_ref_id"):
+            return {"storage_ready": False, "pending_backfill": 0, "fk_count": 0}
+        with connection.cursor() as cursor:
+            cursor.execute(
+                """
+                SELECT COUNT(*)
+                FROM client_session_notes
+                WHERE legacy_client_ref_id IS NULL OR TRIM(COALESCE(legacy_client_ref_id, '')) = ''
+                """
+            )
+            row = cursor.fetchone()
+            cursor.execute(
+                """
+                SELECT COUNT(*)
+                FROM pg_constraint
+                WHERE conrelid = 'client_session_notes'::regclass
+                  AND contype = 'f'
+                """
+            )
+            fk_row = cursor.fetchone()
+        return {
+            "storage_ready": True,
+            "pending_backfill": int(row[0] if row else 0),
+            "fk_count": int(fk_row[0] if fk_row else 0),
+        }
 
     def _runtime_canonical_import_lineno(self, *, text: str) -> int | None:
         tree = ast.parse(text)

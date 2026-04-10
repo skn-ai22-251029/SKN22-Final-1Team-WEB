@@ -25,7 +25,7 @@ EXPECTED_BUSINESS_NUMBER = "1012345672"
 EXPECTED_CLIENT_PHONES = ("01090001001", "01090001002", "01090001003", "01090001004")
 EXPECTED_COUNTS = {
     "designers": 2,
-    "clients": 4,
+    "client_records": 4,
     "surveys": 4,
     "captures": 3,
     "analyses": 3,
@@ -121,7 +121,7 @@ class Command(BaseCommand):
             )
             counts = {
                 "designers": LegacyDesigner.objects.filter(backend_shop_ref_id=shop.id, is_active=True).count(),
-                "clients": LegacyClient.objects.filter(backend_shop_ref_id=shop.id).count(),
+                "client_records": LegacyClient.objects.filter(backend_shop_ref_id=shop.id).count(),
                 "surveys": LegacyClientSurvey.objects.filter(backend_client_ref_id__in=scoped_client_ids).count(),
                 "captures": LegacyClientAnalysis.objects.filter(backend_client_ref_id__in=scoped_client_ids).count(),
                 "analyses": LegacyClientAnalysis.objects.filter(backend_client_ref_id__in=scoped_client_ids).count(),
