@@ -34,6 +34,7 @@ from app.services.runtime_cache import (
     invalidate_partner_scope_cache,
     set_cached_payload,
 )
+from app.services.runtime_client import RuntimeClient as Client
 from app.session_state import (
     allow_owner_dashboard,
     can_access_owner_dashboard,
@@ -50,7 +51,7 @@ from app.session_state import (
 )
 
 if TYPE_CHECKING:
-    from app.models_django import AdminAccount, Client, Designer
+    from app.models_django import AdminAccount, Designer
 
 
 def _normalize_phone(value: str) -> str:

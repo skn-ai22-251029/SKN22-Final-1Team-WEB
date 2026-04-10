@@ -15,9 +15,10 @@ from app.services.model_team_bridge import (
     get_legacy_client_id,
     get_legacy_designer_id,
 )
+from app.services.runtime_client import RuntimeClient as Client
 
 if TYPE_CHECKING:
-    from app.models_django import AdminAccount, Client, Designer
+    from app.models_django import AdminAccount, Designer
 
 
 CUSTOMER_ID_SESSION_KEY = "customer_id"

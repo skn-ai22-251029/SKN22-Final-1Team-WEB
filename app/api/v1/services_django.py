@@ -64,6 +64,7 @@ from app.services.model_team_bridge import (
     sync_model_team_rows,
     sync_model_team_runtime_state,
 )
+from app.services.runtime_client import RuntimeClient as Client
 from app.services.storage_service import (
     build_storage_snapshot,
     persist_analysis_input_image_reference,
@@ -77,7 +78,6 @@ if TYPE_CHECKING:
         AdminAccount,
         CaptureRecord,
         ConsultationRequest,
-        Client,
         FaceAnalysis,
         FormerRecommendation,
         Style,

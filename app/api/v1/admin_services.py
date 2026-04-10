@@ -65,13 +65,13 @@ from app.services.runtime_cache import (
     invalidate_partner_client_cache,
     set_cached_payload,
 )
+from app.services.runtime_client import RuntimeClient as Client
 from app.services.storage_service import build_storage_snapshot, resolve_storage_reference
 
 if TYPE_CHECKING:
     from app.models_django import (
         AdminAccount,
         CaptureRecord,
-        Client,
         ClientProfileNote,
         ConsultationRequest,
         Designer,

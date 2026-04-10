@@ -16,9 +16,10 @@ from app.services.model_team_bridge import (
     get_legacy_admin_id,
     get_legacy_client_id,
 )
+from app.services.runtime_client import RuntimeClient as Client
 
 if TYPE_CHECKING:
-    from app.models_django import AdminAccount, Client
+    from app.models_django import AdminAccount
 
 
 ADMIN_ACCESS_TOKEN_SALT = "mirrai.admin.auth.v1"

@@ -28,12 +28,12 @@ from app.services.legacy_model_sync import (
     _legacy_uuid,
     sync_legacy_model_tables_if_present,
 )
+from app.services.runtime_client import RuntimeClient as Client
 
 if TYPE_CHECKING:
     from app.models_django import (
         AdminAccount,
         CaptureRecord,
-        Client,
         ConsultationRequest,
         Designer,
         FaceAnalysis,
