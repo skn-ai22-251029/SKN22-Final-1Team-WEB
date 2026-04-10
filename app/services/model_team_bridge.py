@@ -1555,7 +1555,7 @@ def get_legacy_confirmed_selection_items(
             continue
         if detail.hairstyle_id != result_row.selected_hairstyle_id and not bool(detail.is_chosen):
             continue
-        created_at = detail.created_at_ts or _coerce_datetime(result_row.updated_at) or _coerce_datetime(result_row.created_at)
+        created_at = _coerce_datetime(detail.created_at_ts) or _coerce_datetime(result_row.updated_at) or _coerce_datetime(result_row.created_at)
         if since is not None and created_at is not None and created_at < since:
             continue
         legacy_client = client_map.get(result_row.client_id)

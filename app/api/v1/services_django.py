@@ -115,6 +115,23 @@ CURRENT_RECOMMENDATION_WAIT_POLICY = RecommendationWaitPolicy(
 FAILED_RECOMMENDATION_INPUT_STATUSES = {"FAILED", "NEEDS_RETAKE", "ERROR"}
 
 
+def _coerce_iso_datetime(value):
+    if value in (None, ""):
+        return None
+    if hasattr(value, "isoformat"):
+        return value.isoformat()
+    if isinstance(value, str):
+        normalized = value.strip()
+        if not normalized:
+            return None
+        try:
+            parsed = timezone.datetime.fromisoformat(normalized.replace("Z", "+00:00"))
+        except ValueError:
+            parsed = None
+        return parsed.isoformat() if parsed is not None else normalized
+    return str(value)
+
+
 def _seed_trend_styles(limit: int = 5) -> list[dict]:
     try:
         styles = load_hairstyles()
@@ -2115,7 +2132,7 @@ def _build_recommendation_diagnostic_snapshot(
         "ai_runtime": get_ai_runtime_config_snapshot(),
         "survey": {
             "present": bool(latest_survey),
-            "created_at": (getattr(latest_survey, "created_at", None).isoformat() if getattr(latest_survey, "created_at", None) else None),
+            "created_at": _coerce_iso_datetime(getattr(latest_survey, "created_at", None)),
             "target_length": getattr(latest_survey, "target_length", None),
             "target_vibe": getattr(latest_survey, "target_vibe", None),
             "scalp_type": getattr(latest_survey, "scalp_type", None),
@@ -2129,22 +2146,22 @@ def _build_recommendation_diagnostic_snapshot(
             "face_count": getattr(latest_capture_attempt, "face_count", None),
             "reason_code": capture_attempt_reason_code,
             "error_note": getattr(latest_capture_attempt, "error_note", None),
-            "created_at": (getattr(latest_capture_attempt, "created_at", None).isoformat() if getattr(latest_capture_attempt, "created_at", None) else None),
-            "updated_at": (getattr(latest_capture_attempt, "updated_at", None).isoformat() if getattr(latest_capture_attempt, "updated_at", None) else None),
+            "created_at": _coerce_iso_datetime(getattr(latest_capture_attempt, "created_at", None)),
+            "updated_at": _coerce_iso_datetime(getattr(latest_capture_attempt, "updated_at", None)),
         },
         "capture": {
             "present": bool(latest_capture),
             "record_id": getattr(latest_capture, "id", None) or getattr(latest_capture, "analysis_id", None),
             "status": getattr(latest_capture, "status", None),
             "face_count": getattr(latest_capture, "face_count", None),
-            "created_at": (getattr(latest_capture, "created_at", None).isoformat() if getattr(latest_capture, "created_at", None) else None),
+            "created_at": _coerce_iso_datetime(getattr(latest_capture, "created_at", None)),
         },
         "analysis": {
             "present": bool(latest_analysis),
             "analysis_id": getattr(latest_analysis, "id", None) or getattr(latest_analysis, "analysis_id", None),
             "face_shape": getattr(latest_analysis, "face_shape", None),
             "golden_ratio_score": getattr(latest_analysis, "golden_ratio_score", None),
-            "created_at": (getattr(latest_analysis, "created_at", None).isoformat() if getattr(latest_analysis, "created_at", None) else None),
+            "created_at": _coerce_iso_datetime(getattr(latest_analysis, "created_at", None)),
         },
         "legacy_recommendations": {
             "count": len(legacy_items),
