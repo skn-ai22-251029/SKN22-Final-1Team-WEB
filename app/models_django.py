@@ -254,31 +254,11 @@ class ConsultationRequest(models.Model):
 
 
 class ClientSessionNote(models.Model):
-    consultation = models.ForeignKey(
-        ConsultationRequest,
-        on_delete=models.CASCADE,
-        related_name="notes",
-    )
-    client = models.ForeignKey(
-        Client,
-        on_delete=models.CASCADE,
-        related_name="session_notes",
-        db_index=True,
-    )
-    admin = models.ForeignKey(
-        AdminAccount,
-        on_delete=models.SET_NULL,
-        null=True,
-        blank=True,
-        related_name="session_notes",
-    )
-    designer = models.ForeignKey(
-        "Designer",
-        on_delete=models.SET_NULL,
-        null=True,
-        blank=True,
-        related_name="session_notes",
-    )
+    consultation_ref_id = models.BigIntegerField(db_column="consultation_id", db_index=True)
+    client_ref_id = models.BigIntegerField(db_column="client_id", db_index=True)
+    legacy_client_ref_id = models.CharField(max_length=255, null=True, blank=True, db_index=True)
+    admin_ref_id = models.BigIntegerField(db_column="admin_id", null=True, blank=True, db_index=True)
+    designer_ref_id = models.BigIntegerField(db_column="designer_id", null=True, blank=True, db_index=True)
     content = models.TextField()
     created_at = models.DateTimeField(auto_now_add=True)
 

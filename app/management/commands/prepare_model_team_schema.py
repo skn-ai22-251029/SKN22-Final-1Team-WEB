@@ -273,6 +273,7 @@ POSTGRES_STATEMENTS = (
     "ALTER TABLE IF EXISTS hairstyle ADD COLUMN IF NOT EXISTS vibe VARCHAR(50)",
     "ALTER TABLE IF EXISTS hairstyle ADD COLUMN IF NOT EXISTS description TEXT",
     # client_session_notes
+    "ALTER TABLE IF EXISTS client_session_notes ADD COLUMN IF NOT EXISTS legacy_client_ref_id VARCHAR(255)",
     """
     DO $$
     DECLARE r record;

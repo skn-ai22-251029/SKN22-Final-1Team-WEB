@@ -1120,31 +1120,60 @@ def _update_consultation_bridge_row(*, consultation_id: int, **fields) -> None:
     return None
 
 
+def _client_session_notes_has_legacy_client_ref_id() -> bool:
+    try:
+        with connection.cursor() as cursor:
+            columns = {
+                column.name
+                for column in connection.introspection.get_table_description(cursor, "client_session_notes")
+            }
+    except (OperationalError, ProgrammingError):
+        return False
+    return "legacy_client_ref_id" in columns
+
+
 def _fetch_note_rows(*, client: "Client", limit: int = 20) -> list[dict]:
+    client_ref_id = getattr(client, "id", client)
+    legacy_client_ref_id = get_legacy_client_id(client=client)
+    has_legacy_client_ref_id = _client_session_notes_has_legacy_client_ref_id()
+    where_sql = "WHERE client_id = %s"
+    params: list[object] = [client_ref_id]
+    if has_legacy_client_ref_id and legacy_client_ref_id:
+        where_sql = "WHERE client_id = %s OR legacy_client_ref_id = %s"
+        params.append(legacy_client_ref_id)
+    params.append(int(limit))
     with connection.cursor() as cursor:
         cursor.execute(
-            """
+            f"""
             SELECT id, consultation_id, admin_id, designer_id, content, created_at
             FROM client_session_notes
-            WHERE client_id = %s
+            {where_sql}
             ORDER BY created_at DESC, id DESC
             LIMIT %s
             """,
-            [client.id, int(limit)],
+            params,
         )
         columns = [column[0] for column in cursor.description]
         return [dict(zip(columns, row)) for row in cursor.fetchall()]
 
 
 def _count_note_rows(*, client: "Client") -> int:
+    client_ref_id = getattr(client, "id", client)
+    legacy_client_ref_id = get_legacy_client_id(client=client)
+    has_legacy_client_ref_id = _client_session_notes_has_legacy_client_ref_id()
+    where_sql = "WHERE client_id = %s"
+    params: list[object] = [client_ref_id]
+    if has_legacy_client_ref_id and legacy_client_ref_id:
+        where_sql = "WHERE client_id = %s OR legacy_client_ref_id = %s"
+        params.append(legacy_client_ref_id)
     with connection.cursor() as cursor:
         cursor.execute(
-            """
+            f"""
             SELECT COUNT(*)
             FROM client_session_notes
-            WHERE client_id = %s
+            {where_sql}
             """,
-            [client.id],
+            params,
         )
         row = cursor.fetchone()
     return int(row[0] if row else 0)
@@ -1153,36 +1182,77 @@ def _count_note_rows(*, client: "Client") -> int:
 def _create_note_row(
     *,
     consultation_id: int,
-    client_id: int,
+    client_ref_id: int,
+    legacy_client_ref_id: str | None,
     admin_id: int | None,
     designer_id: int | None,
     content: str,
 ) -> int:
     returning_supported = connection.vendor == "postgresql"
+    has_legacy_client_ref_id = _client_session_notes_has_legacy_client_ref_id()
     with connection.cursor() as cursor:
         if returning_supported:
+            if has_legacy_client_ref_id:
+                cursor.execute(
+                    """
+                    INSERT INTO client_session_notes (
+                        consultation_id, client_id, legacy_client_ref_id, admin_id, designer_id, content, created_at
+                    )
+                    VALUES (%s, %s, %s, %s, %s, %s, %s)
+                    RETURNING id
+                    """,
+                    [
+                        consultation_id,
+                        client_ref_id,
+                        legacy_client_ref_id,
+                        admin_id,
+                        designer_id,
+                        content,
+                        timezone.now(),
+                    ],
+                )
+            else:
+                cursor.execute(
+                    """
+                    INSERT INTO client_session_notes (
+                        consultation_id, client_id, admin_id, designer_id, content, created_at
+                    )
+                    VALUES (%s, %s, %s, %s, %s, %s)
+                    RETURNING id
+                    """,
+                    [consultation_id, client_ref_id, admin_id, designer_id, content, timezone.now()],
+                )
+            row = cursor.fetchone()
+            return int(row[0])
+
+        if has_legacy_client_ref_id:
+            cursor.execute(
+                """
+                INSERT INTO client_session_notes (
+                    consultation_id, client_id, legacy_client_ref_id, admin_id, designer_id, content, created_at
+                )
+                VALUES (%s, %s, %s, %s, %s, %s, %s)
+                """,
+                [
+                    consultation_id,
+                    client_ref_id,
+                    legacy_client_ref_id,
+                    admin_id,
+                    designer_id,
+                    content,
+                    timezone.now(),
+                ],
+            )
+        else:
             cursor.execute(
                 """
                 INSERT INTO client_session_notes (
                     consultation_id, client_id, admin_id, designer_id, content, created_at
                 )
                 VALUES (%s, %s, %s, %s, %s, %s)
-                RETURNING id
                 """,
-                [consultation_id, client_id, admin_id, designer_id, content, timezone.now()],
+                [consultation_id, client_ref_id, admin_id, designer_id, content, timezone.now()],
             )
-            row = cursor.fetchone()
-            return int(row[0])
-
-        cursor.execute(
-            """
-            INSERT INTO client_session_notes (
-                consultation_id, client_id, admin_id, designer_id, content, created_at
-            )
-            VALUES (%s, %s, %s, %s, %s, %s)
-            """,
-            [consultation_id, client_id, admin_id, designer_id, content, timezone.now()],
-        )
         cursor.execute("SELECT last_insert_rowid()")
         row = cursor.fetchone()
         return int(row[0])
@@ -1805,6 +1875,8 @@ def get_client_recommendation_report(*, client: "Client", admin: "AdminAccount |
 
 
 def create_client_note(*, client: "Client", consultation_id: int, content: str, admin: "AdminAccount | None" = None, designer: "Designer | None" = None) -> dict:
+    client_ref_id = getattr(client, "id", client)
+    legacy_client_ref_id = get_legacy_client_id(client=client)
     consultation = _resolve_consultation_bridge(
         consultation_id=consultation_id,
         client=client,
@@ -1824,7 +1896,8 @@ def create_client_note(*, client: "Client", consultation_id: int, content: str, 
 
     note_id = _create_note_row(
         consultation_id=consultation["id"],
-        client_id=client.id,
+        client_ref_id=client_ref_id,
+        legacy_client_ref_id=legacy_client_ref_id,
         admin_id=getattr(admin, "id", None),
         designer_id=getattr(designer, "id", None),
         content=content.strip(),
@@ -1847,8 +1920,8 @@ def create_client_note(*, client: "Client", consultation_id: int, content: str, 
         "status": "success",
         "note_id": note_id,
         "consultation_id": consultation["id"],
-        "client_id": client.id,
-        "legacy_client_id": get_legacy_client_id(client=client),
+        "client_id": client_ref_id,
+        "legacy_client_id": legacy_client_ref_id,
         "message": "저장 완료되었습니다.",
     }
 
