@@ -6,6 +6,7 @@ import environ
 from mirrai_project.settings_helpers import (
     build_allowed_hosts,
     build_cache_settings,
+    cache_uses_redis,
     resolve_active_database_url,
     unique_values,
 )
@@ -44,7 +45,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 ENV_PATH = BASE_DIR / ".env"
 
 if ENV_PATH.exists():
-    environ.Env.read_env(ENV_PATH, overwrite=True)
+    environ.Env.read_env(ENV_PATH, overwrite=False)
 
 SECRET_KEY = env("SECRET_KEY", default="django-insecure-mock-key-for-dev")
 DEBUG = env.bool("DEBUG", default=False)
@@ -200,7 +201,11 @@ SESSION_COOKIE_AGE = 86400 * 7
 SESSION_SAVE_EVERY_REQUEST = env.bool("SESSION_SAVE_EVERY_REQUEST", default=True)
 SESSION_ENGINE = env("SESSION_ENGINE", default="django.contrib.sessions.backends.db")
 SESSION_CACHE_ALIAS = env("SESSION_CACHE_ALIAS", default="default")
-if REDIS_URL and REDIS_USE_FOR_SESSIONS and SESSION_ENGINE == "django.contrib.sessions.backends.db":
+if (
+    REDIS_USE_FOR_SESSIONS
+    and SESSION_ENGINE == "django.contrib.sessions.backends.db"
+    and cache_uses_redis(cache_settings=CACHES, alias=SESSION_CACHE_ALIAS)
+):
     SESSION_ENGINE = "django.contrib.sessions.backends.cached_db"
 
 if DEBUG:

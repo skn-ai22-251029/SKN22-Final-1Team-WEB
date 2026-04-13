@@ -83,3 +83,8 @@ def build_cache_settings(*, redis_url: str, timeout: int, key_prefix: str) -> di
             "KEY_PREFIX": key_prefix,
         }
     }
+
+
+def cache_uses_redis(*, cache_settings: dict, alias: str = "default") -> bool:
+    backend = str(cache_settings.get(alias, {}).get("BACKEND", "") or "").strip()
+    return backend == "django.core.cache.backends.redis.RedisCache"
