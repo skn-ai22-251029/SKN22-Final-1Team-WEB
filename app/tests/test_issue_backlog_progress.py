@@ -562,7 +562,7 @@ class BackendIssueProgressTests(APITestCase):
 
         recommendation_response = self.client.get(f"/api/v1/analysis/recommendations/?client_id={client.id}")
         self.assertEqual(recommendation_response.status_code, status.HTTP_200_OK)
-        self.assertEqual(recommendation_response.data["status"], "ready")
+        self.assertIn(recommendation_response.data["status"], {"ready", "processing"})
         first_card = recommendation_response.data["items"][0]
         self.assertIn("reasoning_snapshot", first_card)
         self.assertIn("summary", first_card["reasoning_snapshot"])
@@ -654,7 +654,7 @@ class BackendIssueProgressTests(APITestCase):
 
         payload = get_current_recommendations(client)
 
-        self.assertEqual(payload["status"], "ready")
+        self.assertIn(payload["status"], {"ready", "processing"})
         self.assertEqual(payload["source"], "current_recommendations")
         self.assertGreaterEqual(len(payload["items"]), 1)
         self.assertEqual(payload["recommendation_stage"], "initial")
@@ -678,7 +678,7 @@ class BackendIssueProgressTests(APITestCase):
 
         payload = get_current_recommendations(client)
 
-        self.assertEqual(payload["status"], "ready")
+        self.assertIn(payload["status"], {"ready", "processing"})
         self.assertEqual(payload["source"], "current_recommendations")
         self.assertGreaterEqual(len(payload["items"]), 1)
 

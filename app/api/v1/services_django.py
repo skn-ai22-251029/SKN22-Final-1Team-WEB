@@ -1968,12 +1968,23 @@ def _build_legacy_current_recommendations_payload(
 
 
 def _build_processing_current_recommendations_payload(*, message: str, items: list[dict] | None = None) -> dict:
-    return {
+    items_list = list(items or [])
+    retry_meta = _build_legacy_retry_recommendation_meta(items=items_list, has_active_consultation=False)
+    recommendation_stage = _legacy_recommendation_stage(items_list)
+    payload = {
         "status": "processing",
         "source": "current_recommendations",
         "message": message,
-        "items": list(items or []),
+        "items": items_list,
+        "recommendation_stage": recommendation_stage,
     }
+    payload.update(retry_meta)
+    payload["next_actions"] = (
+        ["retry_recommendations", "consultation"]
+        if retry_meta["can_retry_recommendations"]
+        else ["consultation"]
+    )
+    return payload
 
 
 def _has_failed_recommendation_inputs(*, latest_capture_attempt, latest_capture, latest_analysis) -> bool:

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from importlib.util import find_spec
 import socket
 from urllib.request import urlopen
 
@@ -54,7 +55,10 @@ def resolve_active_database_url(
 
 
 def build_cache_settings(*, redis_url: str, timeout: int, key_prefix: str) -> dict:
-    if str(redis_url or "").strip():
+    redis_url = str(redis_url or "").strip()
+    redis_available = find_spec("redis") is not None
+
+    if redis_url and redis_available:
         return {
             "default": {
                 "BACKEND": "django.core.cache.backends.redis.RedisCache",
@@ -70,6 +74,7 @@ def build_cache_settings(*, redis_url: str, timeout: int, key_prefix: str) -> di
             }
         }
 
+    # 로컬/테스트 환경에서는 redis 패키지나 서버가 없어도 안전하게 동작하도록 locmem으로 내려간다.
     return {
         "default": {
             "BACKEND": "django.core.cache.backends.locmem.LocMemCache",

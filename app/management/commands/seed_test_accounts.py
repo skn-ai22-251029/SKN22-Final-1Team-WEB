@@ -29,6 +29,7 @@ from app.services.model_team_bridge import (
     get_designers_for_admin,
     upsert_client_record,
 )
+from app.services.legacy_model_sync import _existing_legacy_tables, _table_names
 
 
 def _build_valid_business_number(prefix: str) -> str:
@@ -178,6 +179,8 @@ class Command(BaseCommand):
         self.stdout.write("  Han Seo / 010-9000-1004 / assignment pending")
 
     def _ensure_legacy_schema(self):
+        _table_names.cache_clear()
+        _existing_legacy_tables.cache_clear()
         existing_tables = set(connection.introspection.table_names())
         required_tables = {
             "shop",
@@ -192,6 +195,8 @@ class Command(BaseCommand):
         if required_tables.issubset(existing_tables):
             return
         call_command("prepare_model_team_schema", stdout=self.stdout)
+        _table_names.cache_clear()
+        _existing_legacy_tables.cache_clear()
 
     def _upsert_shop(self):
         business_number = _build_valid_business_number("101234567")
