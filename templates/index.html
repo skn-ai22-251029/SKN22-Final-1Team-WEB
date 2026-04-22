@@ -660,35 +660,6 @@
     justify-content: center;
   }
 
-  .home-cta-panel {
-    display: flex;
-    justify-content: space-between;
-    gap: 24px;
-    align-items: center;
-    flex-wrap: wrap;
-    padding: 28px 32px;
-    background:
-      radial-gradient(circle at top right, rgba(245, 209, 13, 0.18), transparent 30%),
-      linear-gradient(180deg, #151515 0%, #101010 100%);
-    border: 1px solid rgba(245, 209, 13, 0.16);
-    color: #fff;
-  }
-
-  .home-cta-panel .section-title {
-    margin-bottom: 10px;
-  }
-
-  .home-cta-panel .section-copy {
-    max-width: 620px;
-    color: rgba(255, 255, 255, 0.72);
-  }
-
-  .home-cta-actions {
-    display: flex;
-    gap: 12px;
-    flex-wrap: wrap;
-  }
-
   @keyframes home-float {
     0%,
     100% {
@@ -739,8 +710,7 @@
     }
 
     .home-preview-head,
-    .home-section-head,
-    .home-cta-panel {
+    .home-section-head {
       align-items: flex-start;
       flex-direction: column;
     }
@@ -755,21 +725,18 @@
   }
 
   @media (max-width: 640px) {
-    .home-hero-actions,
-    .home-cta-actions {
+    .home-hero-actions {
       width: 100%;
       flex-direction: column;
     }
 
-    .home-hero-actions .btn,
-    .home-cta-actions .btn {
+    .home-hero-actions .btn {
       width: 100%;
     }
 
     .home-preview-panel,
     .home-flow-card,
-    .home-card,
-    .home-cta-panel {
+    .home-card {
       padding: 24px;
     }
 
@@ -1066,35 +1033,6 @@
     {% endif %}
   </section>
 
-  <section class="panel home-cta-panel">
-    <div>
-      <p class="home-section-kicker">Start Now</p>
-      <h3 class="section-title">고객 상담을 시작할 준비가 되면 바로 이동하세요</h3>
-      {% if request.session.customer_id %}
-      <p class="section-copy">새 추천을 만들거나, 기존 이력과 트렌드를 참고해 이번 선택을 정리할 수 있습니다.</p>
-      {% elif request.session.admin_id or request.session.designer_id %}
-      <p class="section-copy">고객 정보 입력부터 촬영과 추천까지 실제 상담 플로우로 바로 이어집니다.</p>
-      {% else %}
-      <p class="section-copy">파트너 로그인 후 고객 분석을 시작하거나, 파트너 센터에서 매장용 기능을 확인할 수 있습니다.</p>
-      {% endif %}
-    </div>
-
-    <div class="home-cta-actions">
-      {% if request.session.customer_id %}
-      <a href="{% url 'customer_camera' %}" class="btn btn-primary" data-loading-cta="true" data-loading-label="분석 준비 중...">새 추천 시작</a>
-      <a href="{% url 'customer_trend' %}" class="btn btn-dark home-btn-ghost">트렌드 보기</a>
-      {% elif request.session.designer_id %}
-      <a href="{% url 'customer_index' %}" class="btn btn-primary" data-loading-cta="true" data-loading-label="고객 화면 준비 중...">고객 분석 시작</a>
-      <a href="{% url 'partner_staff_dashboard' %}" class="btn btn-dark home-btn-ghost">대시보드 보기</a>
-      {% elif request.session.admin_id %}
-      <a href="{% url 'partner_designer_select' %}?next={% url 'customer_index' %}" class="btn btn-primary" data-loading-cta="true" data-loading-label="고객 화면 준비 중...">고객 분석 시작</a>
-      <a href="{% url 'partner_dashboard' %}" class="btn btn-dark home-btn-ghost" data-admin-gate="true" data-admin-gate-scope="dashboard">파트너 센터</a>
-      {% else %}
-      <a href="{% url 'partner_login' %}?next={% url 'partner_designer_select' %}?next={% url 'customer_index' %}" class="btn btn-primary" data-loading-cta="true" data-loading-label="로그인 화면 준비 중...">분석 시작하기</a>
-      <a href="{% url 'partner_index' %}" class="btn btn-dark home-btn-ghost">파트너 센터</a>
-      {% endif %}
-    </div>
-  </section>
 </div>
 {% endblock %}
 
