@@ -27,6 +27,7 @@ from app.services.model_team_bridge import (
     get_designers_for_admin,
     get_legacy_admin_id,
     get_legacy_designer_id,
+    has_legacy_chosen_consultation,
     update_designer_active_state,
     upsert_client_record,
 )
@@ -529,30 +530,42 @@ def client_menu_page(request):
 
     survey = get_latest_survey(client)
     capture = get_latest_capture(client)
-    former_payload = get_former_recommendations(client)
-    former_items = former_payload.get("items", []) if isinstance(former_payload, dict) else []
-    has_completed_consultation = any(
-        bool(item.get("is_chosen"))
-        for item in former_items
-        if isinstance(item, dict)
+    has_completed_consultation = has_legacy_chosen_consultation(client=client)
+
+    survey_at = getattr(survey, "created_at", None)
+    capture_at = (
+        getattr(capture, "updated_at", None)
+        or getattr(capture, "created_at", None)
+    )
+    if survey_at is not None and timezone.is_naive(survey_at):
+        survey_at = timezone.make_aware(survey_at, timezone.get_current_timezone())
+    if capture_at is not None and timezone.is_naive(capture_at):
+        capture_at = timezone.make_aware(capture_at, timezone.get_current_timezone())
+    needs_survey_after_capture = bool(
+        capture
+        and (
+            survey is None
+            or (survey_at is not None and capture_at is not None and survey_at < capture_at)
+        )
     )
 
     if has_completed_consultation:
         resume_step = None
         resume_step_label = None
         resume_url = None
+    elif needs_survey_after_capture:
+        resume_step = 2
+        resume_step_label = "스타일 설문"
+        resume_url = reverse("customer_survey")
     elif survey:
         resume_step = 3
         resume_step_label = "추천 결과 확인"
         resume_url = reverse("customer_result")
-    elif capture:
-        resume_step = 2
-        resume_step_label = "스타일 설문"
-        resume_url = reverse("customer_survey")
     else:
-        resume_step = 1
-        resume_step_label = "사진 촬영 / 업로드"
-        resume_url = reverse("customer_camera")
+        # 첫 방문(진행 이력 없음)은 진행 상태 UI를 숨긴다.
+        resume_step = None
+        resume_step_label = None
+        resume_url = None
 
     return render(
         request,
