@@ -397,12 +397,31 @@
     const EN_TO_KO_PHRASES = [
       ['clean crop two-block', '깔끔한 크롭 투블럭'],
       ['tapered slick part', '테이퍼드 슬릭 파트'],
+      ['sleek mini', '슬릭 미니'],
+      ['side-parted', '사이드 파트'],
+      ['side parted', '사이드 파트'],
+      ['c-curl', '씨컬'],
+      ['c curl', '씨컬'],
+      ['s-curl', '에스컬'],
+      ['s curl', '에스컬'],
       ['side part', '사이드 파트 컷'],
       ['down perm', '다운펌'],
+      ['textured', '텍스처드'],
+      ['airy', '에어리'],
+      ['short', '숏'],
+      ['medium', '미디엄'],
+      ['full', '풀'],
+      ['long', '롱'],
+      ['wave', '웨이브'],
+      ['flow', '플로우'],
+      ['curl', '컬'],
+      ['hush', '허쉬'],
       ['down', '다운'],
       ['two-block', '투블럭'],
       ['crop', '크롭'],
       ['slick', '슬릭'],
+      ['mini', '미니'],
+      ['parted', '파트'],
       ['tapered', '테이퍼드'],
       ['part', '파트'],
       ['inverted triangle', '역삼각형'],
@@ -453,6 +472,7 @@
         text = text.replace(new RegExp(escaped, 'gi'), ko);
       });
       return text
+        .replace(/파트ed/gi, '파트')
         .replace(/\|/g, ' | ')
         .replace(/\s{2,}/g, ' ')
         .trim();

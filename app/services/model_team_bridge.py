@@ -814,7 +814,18 @@ def upsert_client_record(*, phone: str, name: str, gender: str | None = None, ag
     normalized_name = _normalize_person_name(name)
     created_at = timezone.now()
     row = None
-    for candidate in LegacyClient.objects.filter(phone=normalized_phone).order_by("-backend_client_id", "client_id"):
+    candidate_queryset = LegacyClient.objects.filter(phone=normalized_phone)
+    backend_shop_id = getattr(shop, "id", None)
+    legacy_shop_id = get_legacy_admin_id(admin=shop) if shop is not None else None
+    if backend_shop_id is not None or legacy_shop_id:
+        shop_scope = Q()
+        if backend_shop_id is not None:
+            shop_scope |= Q(backend_shop_ref_id=backend_shop_id)
+        if legacy_shop_id:
+            shop_scope |= Q(shop_id=legacy_shop_id)
+        candidate_queryset = candidate_queryset.filter(shop_scope)
+
+    for candidate in candidate_queryset.order_by("-backend_client_id", "client_id"):
         candidate_name = _normalize_person_name(getattr(candidate, "name", None) or getattr(candidate, "client_name", None))
         if candidate_name == normalized_name:
             row = candidate
@@ -1783,6 +1794,22 @@ def get_legacy_active_consultation_count(
         if client_key:
             active_clients.add(client_key)
     return len(active_clients)
+
+
+def has_legacy_chosen_consultation(*, client: Client) -> bool:
+    if not _has_columns("client_result", LEGACY_RESULT_MODEL_COLUMNS):
+        return False
+    result_queryset = _legacy_result_queryset(client=client)
+    if result_queryset.filter(selected_hairstyle_id__gt=0).exists():
+        return True
+    if _has_columns("client_result_detail", LEGACY_RESULT_DETAIL_MODEL_COLUMNS):
+        result_ids = list(result_queryset.values_list("result_id", flat=True))
+        if result_ids:
+            return LegacyClientResultDetail.objects.filter(
+                result_id__in=result_ids,
+                is_chosen=True,
+            ).exists()
+    return False
 
 
 def get_legacy_confirmed_selection_items(
