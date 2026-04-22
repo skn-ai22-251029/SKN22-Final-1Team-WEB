@@ -1,6 +1,6 @@
 {% extends "layouts/base_site.html" %}
 
-{% block page_title %}MirrAI | Analysis Result{% endblock %}
+{% block page_title %}MirrAI | 추천 결과{% endblock %}
 
 {% block extra_head %}
 <style>
@@ -394,6 +394,104 @@
       }[char]));
     }
 
+    const EN_TO_KO_PHRASES = [
+      ['clean crop two-block', '깔끔한 크롭 투블럭'],
+      ['tapered slick part', '테이퍼드 슬릭 파트'],
+      ['sleek mini', '슬릭 미니'],
+      ['side-parted', '사이드 파트'],
+      ['side parted', '사이드 파트'],
+      ['c-curl', '씨컬'],
+      ['c curl', '씨컬'],
+      ['s-curl', '에스컬'],
+      ['s curl', '에스컬'],
+      ['side part', '사이드 파트 컷'],
+      ['down perm', '다운펌'],
+      ['textured', '텍스처드'],
+      ['airy', '에어리'],
+      ['short', '숏'],
+      ['medium', '미디엄'],
+      ['full', '풀'],
+      ['long', '롱'],
+      ['wave', '웨이브'],
+      ['flow', '플로우'],
+      ['curl', '컬'],
+      ['hush', '허쉬'],
+      ['down', '다운'],
+      ['two-block', '투블럭'],
+      ['crop', '크롭'],
+      ['slick', '슬릭'],
+      ['mini', '미니'],
+      ['parted', '파트'],
+      ['tapered', '테이퍼드'],
+      ['part', '파트'],
+      ['inverted triangle', '역삼각형'],
+      ['wolf cut', '울프컷'],
+      ['long bob', '롱보브'],
+      ['see-through bang', '시스루뱅'],
+      ['preference', '취향'],
+      ['ratio', '비율'],
+      ['face', '얼굴'],
+      ['penalty', '패널티'],
+      ['face shape', '얼굴형'],
+      ['ratio score', '비율 점수'],
+      ['match score', '매칭 점수'],
+      ['pixie', '픽시'],
+      ['layer', '레이어'],
+      ['bob', '보브'],
+      ['lob', '롭'],
+      ['shag', '샤기'],
+      ['perm', '펌'],
+      ['fringe', '앞머리'],
+      ['bang', '앞머리'],
+      ['volume', '볼륨'],
+      ['natural', '내추럴'],
+      ['chic', '시크'],
+      ['cute', '러블리'],
+      ['elegant', '우아한'],
+      ['classic', '클래식'],
+      ['trendy', '트렌디'],
+      ['soft', '부드러운'],
+      ['oval', '타원형'],
+      ['round', '둥근형'],
+      ['square', '각진형'],
+      ['heart', '하트형'],
+      ['diamond', '마름모형'],
+      ['oblong', '긴형'],
+      ['triangle', '삼각형'],
+      ['match', '매칭'],
+      ['cut', '컷'],
+    ];
+
+    function localizeText(value) {
+      let text = String(value ?? '').trim();
+      if (!text) {
+        return text;
+      }
+      EN_TO_KO_PHRASES.forEach(([en, ko]) => {
+        const escaped = en.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        text = text.replace(new RegExp(escaped, 'gi'), ko);
+      });
+      return text
+        .replace(/파트ed/gi, '파트')
+        .replace(/\|/g, ' | ')
+        .replace(/\s{2,}/g, ' ')
+        .trim();
+    }
+
+    function normalizeStyleNameLabel(value) {
+      const text = localizeText(value);
+      if (!text) {
+        return '추천 스타일';
+      }
+      if (/(펌|컷|스타일)$/u.test(text)) {
+        return text;
+      }
+      if (/(파트|투블럭|크롭|보브|롭|샤기|픽시|울프|레이어|테이퍼드|슬릭)$/u.test(text)) {
+        return `${text} 컷`;
+      }
+      return text;
+    }
+
     function formatNumericValue(value, digits = 1) {
       const number = Number(value);
       if (!Number.isFinite(number)) {
@@ -761,8 +859,8 @@
       results.forEach((style) => {
         const renderImage = resolveRenderImage(style);
         const imageUrl = renderImage.url;
-        const styleName = style.style_name || '추천 스타일';
-        const reasoning = style.reasoning || style.style_description || '추천 설명을 준비하고 있습니다.';
+        const styleName = normalizeStyleNameLabel(style.style_name || '추천 스타일');
+        const reasoning = localizeText(style.reasoning || style.style_description || '추천 설명을 준비하고 있습니다.');
         const matchBasis = formatMatchBasis(style.reasoning_snapshot);
         const card = document.createElement('div');
         card.className = 'style-card';
@@ -845,7 +943,8 @@
           const btn = selectedCard.querySelector('.select-btn');
           if (btn) btn.textContent = '선택 완료';
         }
-        selectedInfo.textContent = `${style.style_name || '추천 스타일'} · ${style.match_score || 0}% Match`;
+        const selectedName = normalizeStyleNameLabel(style.style_name || '추천 스타일');
+        selectedInfo.textContent = `${selectedName} · ${style.match_score || 0}% 매칭`;
       }
       syncSelectionUI();
       syncRetryButton();

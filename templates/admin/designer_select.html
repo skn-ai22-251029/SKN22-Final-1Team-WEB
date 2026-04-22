@@ -68,6 +68,7 @@
   .keypad { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; max-width: 220px; margin: 0 auto; }
   .key { aspect-ratio: 1; display: flex; align-items: center; justify-content: center; font-size: 18px; font-weight: 700; border-radius: 50%; background: #fff; border: 1px solid var(--line); cursor: pointer; }
   .key:hover { background: #f8f9fa; border-color: var(--accent-neon); }
+  .key.key-disabled { opacity: 0.4; cursor: not-allowed; pointer-events: none; }
 
   @keyframes shake { 0%, 100% { transform: translateX(0); } 25% { transform: translateX(-8px); } 75% { transform: translateX(8px); } }
   .shake { animation: shake 0.3s; }
@@ -114,8 +115,10 @@
   (function() {
     let selectedDesignerId = null;
     let currentPin = "";
+    let pinLocked = false;
     const section = document.getElementById('selectSection');
     const messageEl = document.getElementById('statusMessage');
+    const keypadKeys = Array.from(document.querySelectorAll('.keypad .key'));
 
     function updateStatus(msg, type) {
       if (messageEl) {
@@ -127,8 +130,19 @@
     function goToStep(stepId) {
       document.querySelectorAll('.select-step').forEach(el => el.classList.remove('active'));
       document.getElementById(stepId).classList.add('active');
-      if (stepId === 'stepPin') clearPin();
+      if (stepId === 'stepPin') {
+        setPinLocked(false, "");
+        clearPin();
+      }
       updateStatus("", "");
+    }
+
+    function setPinLocked(locked, message) {
+      pinLocked = Boolean(locked);
+      keypadKeys.forEach((keyEl) => keyEl.classList.toggle('key-disabled', pinLocked));
+      if (pinLocked && message) {
+        updateStatus(message, "error");
+      }
     }
 
     async function fetchDesigners() {
@@ -274,6 +288,7 @@
     }
 
     window.appendPin = function(num) {
+      if (pinLocked) return;
       if (currentPin.length < 4) {
         currentPin += num;
         updatePinDisplay();
@@ -281,8 +296,8 @@
       }
     };
 
-    window.clearPin = function() { currentPin = ""; updatePinDisplay(); };
-    window.deletePin = function() { currentPin = currentPin.slice(0, -1); updatePinDisplay(); };
+    window.clearPin = function() { if (pinLocked) return; currentPin = ""; updatePinDisplay(); };
+    window.deletePin = function() { if (pinLocked) return; currentPin = currentPin.slice(0, -1); updatePinDisplay(); };
 
     function updatePinDisplay() {
       const dots = document.querySelectorAll('.pin-dot');
@@ -309,6 +324,10 @@
             window.location.replace(nextUrl);
           });
         } else {
+          if (data.locked) {
+            setPinLocked(true, data.message || "인증번호 입력이 잠겨 있습니다. 관리자에게 확인하세요!");
+            return;
+          }
           handleFail(data.message);
         }
       } catch (e) { handleFail("통신 오류"); }

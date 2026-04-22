@@ -1,9 +1,12 @@
 from __future__ import annotations
 
+import hashlib
 import re
 from typing import TYPE_CHECKING
 
+from django.conf import settings
 from django.contrib.auth.hashers import check_password, identify_hasher, make_password
+from django.core.cache import cache
 from django.http import HttpRequest, JsonResponse
 from django.shortcuts import redirect, render
 from django.urls import reverse
@@ -24,6 +27,7 @@ from app.services.model_team_bridge import (
     get_designers_for_admin,
     get_legacy_admin_id,
     get_legacy_designer_id,
+    has_legacy_chosen_consultation,
     update_designer_active_state,
     upsert_client_record,
 )
@@ -63,6 +67,105 @@ def _normalize_phone(value: str) -> str:
 
 def _normalize_business_number(value: str) -> str:
     return re.sub(r"\D", "", value or "")
+
+
+def _designer_pin_policy() -> tuple[int, int, int]:
+    max_attempts = max(1, cache_timeout("DESIGNER_PIN_MAX_ATTEMPTS", 3))
+    lock_seconds = max(60, cache_timeout("DESIGNER_PIN_LOCK_SECONDS", 900))
+    fail_window_seconds = max(lock_seconds, cache_timeout("DESIGNER_PIN_FAIL_WINDOW_SECONDS", lock_seconds))
+    return max_attempts, lock_seconds, fail_window_seconds
+
+
+def _designer_pin_scope_token(request: HttpRequest) -> str:
+    forwarded_for = (request.META.get("HTTP_X_FORWARDED_FOR") or "").split(",")[0].strip()
+    remote_addr = forwarded_for or (request.META.get("REMOTE_ADDR") or "unknown")
+    user_agent = (request.META.get("HTTP_USER_AGENT") or "").strip()[:120]
+    payload = f"{remote_addr}|{user_agent}"
+    return hashlib.sha1(payload.encode("utf-8")).hexdigest()[:16]
+
+
+def _designer_pin_lock_keys(*, admin, designer_id: str, request: HttpRequest) -> tuple[str, str]:
+    prefix = getattr(settings, "REDIS_KEY_PREFIX", "mirrai")
+    admin_identity = str(getattr(admin, "id", None) or get_legacy_admin_id(admin=admin) or "none")
+    designer_identity = str(designer_id or "none").strip() or "none"
+    scope_identity = _designer_pin_scope_token(request)
+    base = f"{prefix}:auth:designer-pin:{admin_identity}:{designer_identity}:{scope_identity}"
+    return f"{base}:fails", f"{base}:locked-until"
+
+
+def _get_designer_pin_lock_state(*, admin, designer_id: str, request: HttpRequest) -> dict[str, int | bool]:
+    max_attempts, _, _ = _designer_pin_policy()
+    fails_key, lock_key = _designer_pin_lock_keys(admin=admin, designer_id=designer_id, request=request)
+
+    now_ts = timezone.now().timestamp()
+    locked_until = cache.get(lock_key)
+    try:
+        locked_until_ts = float(locked_until or 0.0)
+    except (TypeError, ValueError):
+        locked_until_ts = 0.0
+
+    if locked_until_ts > now_ts:
+        return {
+            "is_locked": True,
+            "remaining_lock_seconds": max(1, int(locked_until_ts - now_ts)),
+            "remaining_attempts": 0,
+        }
+
+    if locked_until:
+        cache.delete(lock_key)
+
+    fail_count_raw = cache.get(fails_key)
+    try:
+        fail_count = int(fail_count_raw or 0)
+    except (TypeError, ValueError):
+        fail_count = 0
+    return {
+        "is_locked": False,
+        "remaining_lock_seconds": 0,
+        "remaining_attempts": max(0, max_attempts - fail_count),
+    }
+
+
+def _record_designer_pin_failure(*, admin, designer_id: str, request: HttpRequest) -> dict[str, int | bool]:
+    max_attempts, lock_seconds, fail_window_seconds = _designer_pin_policy()
+    current_state = _get_designer_pin_lock_state(admin=admin, designer_id=designer_id, request=request)
+    if current_state["is_locked"]:
+        return current_state
+
+    fails_key, lock_key = _designer_pin_lock_keys(admin=admin, designer_id=designer_id, request=request)
+    if cache.add(fails_key, 1, timeout=fail_window_seconds):
+        fail_count = 1
+    else:
+        try:
+            fail_count = int(cache.incr(fails_key))
+        except Exception:
+            cached_count = cache.get(fails_key)
+            try:
+                fail_count = int(cached_count or 0) + 1
+            except (TypeError, ValueError):
+                fail_count = 1
+            cache.set(fails_key, fail_count, timeout=fail_window_seconds)
+
+    if fail_count >= max_attempts:
+        lock_until_ts = timezone.now().timestamp() + lock_seconds
+        cache.set(lock_key, lock_until_ts, timeout=lock_seconds)
+        cache.delete(fails_key)
+        return {
+            "is_locked": True,
+            "remaining_lock_seconds": lock_seconds,
+            "remaining_attempts": 0,
+        }
+
+    return {
+        "is_locked": False,
+        "remaining_lock_seconds": 0,
+        "remaining_attempts": max(0, max_attempts - fail_count),
+    }
+
+
+def _clear_designer_pin_failures(*, admin, designer_id: str, request: HttpRequest) -> None:
+    fails_key, lock_key = _designer_pin_lock_keys(admin=admin, designer_id=designer_id, request=request)
+    cache.delete_many([fails_key, lock_key])
 
 
 def _is_hashed_secret(value: str | None) -> bool:
@@ -427,16 +530,39 @@ def client_menu_page(request):
 
     survey = get_latest_survey(client)
     capture = get_latest_capture(client)
+    has_completed_consultation = has_legacy_chosen_consultation(client=client)
 
-    if survey:
-        resume_step = 3
-        resume_step_label = "추천 결과 확인"
-        resume_url = reverse("customer_result")
-    elif capture:
+    survey_at = getattr(survey, "created_at", None)
+    capture_at = (
+        getattr(capture, "updated_at", None)
+        or getattr(capture, "created_at", None)
+    )
+    if survey_at is not None and timezone.is_naive(survey_at):
+        survey_at = timezone.make_aware(survey_at, timezone.get_current_timezone())
+    if capture_at is not None and timezone.is_naive(capture_at):
+        capture_at = timezone.make_aware(capture_at, timezone.get_current_timezone())
+    needs_survey_after_capture = bool(
+        capture
+        and (
+            survey is None
+            or (survey_at is not None and capture_at is not None and survey_at < capture_at)
+        )
+    )
+
+    if has_completed_consultation:
+        resume_step = None
+        resume_step_label = None
+        resume_url = None
+    elif needs_survey_after_capture:
         resume_step = 2
         resume_step_label = "스타일 설문"
         resume_url = reverse("customer_survey")
+    elif survey:
+        resume_step = 3
+        resume_step_label = "추천 결과 확인"
+        resume_url = reverse("customer_result")
     else:
+        # 첫 방문(진행 이력 없음)은 진행 상태 UI를 숨긴다.
         resume_step = None
         resume_step_label = None
         resume_url = None
@@ -450,6 +576,7 @@ def client_menu_page(request):
             "resume_step": resume_step,
             "resume_step_label": resume_step_label,
             "resume_url": resume_url,
+            "has_completed_consultation": has_completed_consultation,
         },
     )
 
@@ -859,6 +986,77 @@ def designer_signup_page(request):
     return render(request, "admin/designer_signup.html", {"active_shop": admin})
 
 
+def _designer_management_rows(*, admin, request: HttpRequest) -> list[dict]:
+    from django.db.models import Count, Q
+
+    from app.models_model_team import LegacyClient
+    from app.services.model_team_bridge import (
+        LEGACY_CLIENT_MODEL_COLUMNS,
+        get_backend_admin_id,
+    )
+
+    designers = get_designers_for_admin(admin=admin)
+    if not designers:
+        return []
+
+    client_counts_by_designer: dict[int, int] = {}
+    if LEGACY_CLIENT_MODEL_COLUMNS.issubset({field.name for field in LegacyClient._meta.get_fields()}):
+        legacy_admin_id = get_legacy_admin_id(admin=admin)
+        backend_admin_id = get_backend_admin_id(admin=admin)
+        scope_filter = Q()
+        if legacy_admin_id:
+            scope_filter |= Q(shop_id=legacy_admin_id)
+        if backend_admin_id is not None:
+            scope_filter |= Q(backend_shop_ref_id=backend_admin_id)
+
+        if scope_filter:
+            for item in (
+                LegacyClient.objects.filter(scope_filter, backend_designer_ref_id__isnull=False)
+                .values("backend_designer_ref_id")
+                .annotate(unique_client_count=Count("client_id", distinct=True))
+            ):
+                try:
+                    designer_key = int(item.get("backend_designer_ref_id"))
+                except (TypeError, ValueError):
+                    continue
+                client_counts_by_designer[designer_key] = int(item.get("unique_client_count") or 0)
+
+    now = timezone.localtime()
+    rows: list[dict] = []
+    for designer in designers:
+        joined_at = getattr(designer, "created_at", None)
+        joined_local = None
+        if joined_at is not None:
+            if timezone.is_naive(joined_at):
+                joined_at = timezone.make_aware(joined_at, timezone.get_current_timezone())
+            joined_local = timezone.localtime(joined_at)
+        tenure_months = 0
+        if joined_local is not None:
+            tenure_months = (now.year - joined_local.year) * 12 + (now.month - joined_local.month)
+            if now.day < joined_local.day:
+                tenure_months -= 1
+            tenure_months = max(0, tenure_months)
+
+        lock_state = _get_designer_pin_lock_state(admin=admin, designer_id=str(designer.id), request=request)
+        try:
+            designer_key = int(designer.id)
+        except (TypeError, ValueError):
+            designer_key = None
+        rows.append(
+            {
+                "id": designer.id,
+                "name": designer.name,
+                "phone": designer.phone,
+                "customer_count": client_counts_by_designer.get(designer_key, 0) if designer_key is not None else 0,
+                "joined_at": joined_local,
+                "tenure_months": tenure_months,
+                "status_label": "인증 잠김" if lock_state.get("is_locked") else "활성",
+                "is_locked": bool(lock_state.get("is_locked")),
+            }
+        )
+    return rows
+
+
 @never_cache
 def designer_management_page(request):
     if _has_standalone_customer_session(request=request):
@@ -871,7 +1069,7 @@ def designer_management_page(request):
     if gate_response is not None:
         return gate_response
 
-    designers = get_designers_for_admin(admin=admin)
+    designers = _designer_management_rows(admin=admin, request=request)
     return render(
         request,
         "admin/designer_management.html",
@@ -921,6 +1119,52 @@ def designer_delete_page(request):
             "designers": get_designers_for_admin(admin=admin),
             "popup_message": _popup_message_from_notice(request.GET.get("notice")),
         },
+    )
+
+
+@never_cache
+def designer_unlock_pin_page(request: HttpRequest):
+    if request.method != "POST":
+        return JsonResponse({"status": "error", "message": "POST method is required."}, status=405)
+
+    if _has_standalone_customer_session(request=request):
+        return JsonResponse({"status": "error", "message": "고객 세션에서는 접근할 수 없습니다."}, status=403)
+
+    admin = get_session_admin(request=request)
+    if admin is None or get_session_designer(request=request) is not None:
+        return JsonResponse({"status": "error", "message": "관리자 세션이 필요합니다."}, status=401)
+
+    gate_response = _owner_scope_gate_response(request=request, scope="dashboard")
+    if gate_response is not None:
+        return JsonResponse({"status": "error", "message": "관리자 인증이 필요합니다."}, status=403)
+
+    designer_id = (request.POST.get("designer_id") or "").strip()
+    pin = (request.POST.get("pin") or "").strip()
+    if not designer_id:
+        return JsonResponse({"status": "error", "message": "디자이너를 선택해 주세요."}, status=400)
+    if not re.fullmatch(r"\d{4}", pin):
+        return JsonResponse({"status": "error", "message": "관리자 보안키 4자리를 입력해 주세요."}, status=400)
+
+    admin_obj = get_admin_by_identifier(identifier=admin.id) or admin
+    if not _matches_admin_pin(raw_pin=pin, stored_pin=getattr(admin_obj, "admin_pin", None)):
+        return JsonResponse({"status": "error", "message": "관리자 보안키가 일치하지 않습니다."}, status=401)
+
+    try:
+        _upgrade_plain_admin_pin_if_needed(request=request, admin_obj=admin_obj, raw_pin=pin)
+    except Exception:
+        pass
+
+    designer = get_designer_for_admin(admin=admin, designer_id=designer_id)
+    if designer is None:
+        return JsonResponse({"status": "error", "message": "디자이너 정보를 찾을 수 없습니다."}, status=404)
+
+    _clear_designer_pin_failures(admin=admin, designer_id=designer_id, request=request)
+    return JsonResponse(
+        {
+            "status": "success",
+            "message": f"{getattr(designer, 'name', None) or '디자이너'} 잠금이 해제되었습니다.",
+            "designer_id": str(designer_id),
+        }
     )
 
 
@@ -1181,12 +1425,41 @@ def partner_verify(request):
                 status=404,
             )
 
-        if not check_password(pin, designer.pin_hash):
+        lock_state = _get_designer_pin_lock_state(admin=admin, designer_id=designer_id, request=request)
+        if lock_state["is_locked"]:
             return JsonResponse(
-                {"status": "error", "message": "PIN 번호를 다시 확인해 주세요."},
+                {
+                    "status": "error",
+                    "message": "인증번호 입력이 잠겨 있습니다. 관리자에게 확인하세요!",
+                    "locked": True,
+                    "remaining_lock_seconds": lock_state["remaining_lock_seconds"],
+                },
+                status=423,
+            )
+
+        if not check_password(pin, designer.pin_hash):
+            fail_state = _record_designer_pin_failure(admin=admin, designer_id=designer_id, request=request)
+            if fail_state["is_locked"]:
+                return JsonResponse(
+                    {
+                        "status": "error",
+                        "message": "인증번호 입력이 잠겨 있습니다. 관리자에게 확인하세요!",
+                        "locked": True,
+                        "remaining_lock_seconds": fail_state["remaining_lock_seconds"],
+                    },
+                    status=423,
+                )
+            return JsonResponse(
+                {
+                    "status": "error",
+                    "message": f"PIN 번호를 다시 확인해 주세요. (남은 시도 {fail_state['remaining_attempts']}회)",
+                    "locked": False,
+                    "remaining_attempts": fail_state["remaining_attempts"],
+                },
                 status=401,
             )
 
+        _clear_designer_pin_failures(admin=admin, designer_id=designer_id, request=request)
         clear_customer_session(request=request)
         active_shop = getattr(designer, "shop", None) or admin
         set_admin_session(request=request, admin=active_shop)
