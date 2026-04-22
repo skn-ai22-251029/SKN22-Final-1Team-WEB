@@ -529,8 +529,19 @@ def client_menu_page(request):
 
     survey = get_latest_survey(client)
     capture = get_latest_capture(client)
+    former_payload = get_former_recommendations(client)
+    former_items = former_payload.get("items", []) if isinstance(former_payload, dict) else []
+    has_completed_consultation = any(
+        bool(item.get("is_chosen"))
+        for item in former_items
+        if isinstance(item, dict)
+    )
 
-    if survey:
+    if has_completed_consultation:
+        resume_step = None
+        resume_step_label = None
+        resume_url = None
+    elif survey:
         resume_step = 3
         resume_step_label = "추천 결과 확인"
         resume_url = reverse("customer_result")
@@ -539,9 +550,9 @@ def client_menu_page(request):
         resume_step_label = "스타일 설문"
         resume_url = reverse("customer_survey")
     else:
-        resume_step = None
-        resume_step_label = None
-        resume_url = None
+        resume_step = 1
+        resume_step_label = "사진 촬영 / 업로드"
+        resume_url = reverse("customer_camera")
 
     return render(
         request,
@@ -552,6 +563,7 @@ def client_menu_page(request):
             "resume_step": resume_step,
             "resume_step_label": resume_step_label,
             "resume_url": resume_url,
+            "has_completed_consultation": has_completed_consultation,
         },
     )
 

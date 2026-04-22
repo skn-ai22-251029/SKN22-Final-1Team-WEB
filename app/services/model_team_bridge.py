@@ -137,6 +137,10 @@ def _normalize_phone(value: str | None) -> str:
     return "".join(char for char in str(value or "") if char.isdigit())
 
 
+def _normalize_person_name(value: str | None) -> str:
+    return "".join(str(value or "").split()).casefold()
+
+
 @lru_cache(maxsize=None)
 def _table_columns(table_name: str) -> frozenset[str]:
     with connection.cursor() as cursor:
@@ -807,8 +811,14 @@ def upsert_client_record(*, phone: str, name: str, gender: str | None = None, ag
     if not _has_columns("client", LEGACY_CLIENT_MODEL_COLUMNS):
         raise RuntimeError("Legacy client table is required.")
     normalized_phone = _normalize_phone(phone)
+    normalized_name = _normalize_person_name(name)
     created_at = timezone.now()
-    row = LegacyClient.objects.filter(phone=normalized_phone).order_by("-backend_client_id", "client_id").first()
+    row = None
+    for candidate in LegacyClient.objects.filter(phone=normalized_phone).order_by("-backend_client_id", "client_id"):
+        candidate_name = _normalize_person_name(getattr(candidate, "name", None) or getattr(candidate, "client_name", None))
+        if candidate_name == normalized_name:
+            row = candidate
+            break
     if row is None:
         backend_client_id = _next_backend_ref_id(LegacyClient, "backend_client_id")
         legacy_client_id = str(_legacy_uuid("client", backend_client_id))
