@@ -24,7 +24,14 @@ from app.api.v1.services_django import (
     get_latest_survey,
     serialize_recommendation_row,
 )
-from app.models_model_team import LegacyClient, LegacyClientResult, LegacyDesigner, LegacyHairstyle
+from app.models_model_team import (
+    LegacyClient,
+    LegacyClientAnalysis,
+    LegacyClientResult,
+    LegacyClientSurvey,
+    LegacyDesigner,
+    LegacyHairstyle,
+)
 from app.services.age_profile import build_client_age_profile
 from app.services.ai_facade import get_ai_health
 from app.services.model_team_bridge import (
@@ -1600,6 +1607,39 @@ def get_all_clients(*, query: str = "", admin: "AdminAccount | None" = None, des
     legacy_active_items = get_legacy_active_consultation_items(admin=admin, designer=designer) or []
     legacy_active_by_client = _build_active_consultation_client_map(legacy_active_items)
     legacy_visit_summary_by_client = get_legacy_client_visit_summary_map(admin=admin, designer=designer)
+    legacy_client_ids = {
+        str(get_legacy_client_id(client=client) or "").strip()
+        for client in clients
+    }
+    legacy_client_ids.discard("")
+
+    survey_completed_keys: set[str] = set()
+    photo_captured_keys: set[str] = set()
+    consultation_requested_keys: set[str] = set()
+
+    if legacy_client_ids:
+        survey_completed_keys = {
+            str(value).strip()
+            for value in LegacyClientSurvey.objects.filter(client_id__in=legacy_client_ids).values_list("client_id", flat=True)
+            if value
+        }
+        photo_captured_keys = {
+            str(value).strip()
+            for value in LegacyClientAnalysis.objects.filter(client_id__in=legacy_client_ids).values_list("client_id", flat=True)
+            if value
+        }
+        confirmed_items = get_legacy_confirmed_selection_items(
+            admin=admin,
+            designer=designer,
+            compact=True,
+        ) or []
+        for confirmed in confirmed_items:
+            backend_client_key = str(confirmed.get("client_id") or "").strip()
+            legacy_client_key = str(confirmed.get("legacy_client_id") or "").strip()
+            if backend_client_key:
+                consultation_requested_keys.add(backend_client_key)
+            if legacy_client_key:
+                consultation_requested_keys.add(legacy_client_key)
 
     items = []
     for client in clients:
@@ -1639,6 +1679,12 @@ def get_all_clients(*, query: str = "", admin: "AdminAccount | None" = None, des
                 "has_active_consultation": bool(legacy_active and legacy_active.get("is_active")),
                 "session_active": bool(legacy_active and legacy_active.get("is_active")),
                 "can_write_designer_diagnosis": bool(legacy_active and legacy_active.get("is_active")),
+                "has_survey_completed": bool(legacy_client_id and legacy_client_id in survey_completed_keys),
+                "has_photo_captured": bool(legacy_client_id and legacy_client_id in photo_captured_keys),
+                "has_consultation_requested": bool(
+                    (backend_client_id and backend_client_id in consultation_requested_keys)
+                    or (legacy_client_id and legacy_client_id in consultation_requested_keys)
+                ),
             }
         )
     payload = {"status": "ready", "items": items}
