@@ -333,6 +333,9 @@ class LegacyAllClientsView(CompatEnvelopeAPIView):
                 "has_active_consultation": item.get("has_active_consultation", False),
                 "session_active": item.get("session_active", False),
                 "can_write_designer_diagnosis": item.get("can_write_designer_diagnosis", False),
+                "has_survey_completed": item.get("has_survey_completed", False),
+                "has_photo_captured": item.get("has_photo_captured", False),
+                "has_consultation_requested": item.get("has_consultation_requested", False),
             }
             for item in payload["items"]
         ]

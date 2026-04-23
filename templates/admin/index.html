@@ -206,14 +206,14 @@
           <button id="searchBtn" class="btn btn-dark" style="padding: 0 24px; height: 48px; border-radius: 12px;">검색</button>
         </div>
         <div class="table-container">
-          <table style="width: 100%; border-collapse: collapse;">
+          <table style="width: 100%; border-collapse: collapse; table-layout: fixed;">
             <thead>
-              <tr style="border-bottom: 2px solid var(--line); text-align: left;">
-                <th style="padding: 12px 20px; font-size: 13px; color: var(--text-secondary);">고객명</th>
-                <th style="padding: 12px 20px; font-size: 13px; color: var(--text-secondary);">디자이너</th>
-                <th style="padding: 12px 20px; font-size: 13px; color: var(--text-secondary);">최근 방문</th>
-                <th style="padding: 12px 20px; font-size: 13px; color: var(--text-secondary);">총 방문수</th>
-                <th style="padding: 12px 20px;"></th>
+              <tr style="border-bottom: 2px solid var(--line); text-align: center;">
+                <th style="width: 20%; padding: 12px 20px; font-size: 13px; color: var(--text-secondary); text-align: center;">고객명</th>
+                <th style="width: 20%; padding: 12px 20px; font-size: 13px; color: var(--text-secondary); text-align: center;">디자이너</th>
+                <th style="width: 20%; padding: 12px 20px; font-size: 13px; color: var(--text-secondary); text-align: center;">최근 방문</th>
+                <th style="width: 20%; padding: 12px 20px; font-size: 13px; color: var(--text-secondary); text-align: center;">총 방문수</th>
+                <th style="width: 20%; padding: 12px 20px; font-size: 13px; color: var(--text-secondary); text-align: center;">고객카드</th>
               </tr>
             </thead>
             <tbody id="customerListBody"></tbody>
@@ -708,9 +708,21 @@
           visitText = diffDays === 0 ? '오늘' : `${diffDays}일 전`;
         }
         const sessionActive = Boolean(c.session_active || c.has_active_consultation);
-        const sessionBadge = sessionActive
-          ? '<span style="display:inline-flex; align-items:center; gap:6px; padding:4px 10px; border-radius:999px; background: rgba(21, 128, 61, 0.12); color:#166534; font-size:11px; font-weight:700;">세션 진행 중</span>'
-          : '<span style="display:inline-flex; align-items:center; gap:6px; padding:4px 10px; border-radius:999px; background: rgba(71, 85, 105, 0.12); color:#475569; font-size:11px; font-weight:700;">세션 없음</span>';
+        const hasConsultationRequested = Boolean(c.has_consultation_requested);
+        const hasSurveyCompleted = Boolean(c.has_survey_completed);
+        const hasPhotoCaptured = Boolean(c.has_photo_captured);
+
+        let sessionBadge = '<span style="display:inline-flex; align-items:center; gap:6px; padding:4px 10px; border-radius:999px; background: rgba(71, 85, 105, 0.12); color:#475569; font-size:11px; font-weight:700;">사진 촬영 전</span>';
+
+        if (hasSurveyCompleted && hasPhotoCaptured) {
+          sessionBadge = '<span style="display:inline-flex; align-items:center; gap:6px; padding:4px 10px; border-radius:999px; background: rgba(180, 83, 9, 0.12); color:#92400e; font-size:11px; font-weight:700;">취향 설문 완료</span>';
+        }
+        if (hasConsultationRequested) {
+          sessionBadge = '<span style="display:inline-flex; align-items:center; gap:6px; padding:4px 10px; border-radius:999px; background: rgba(30, 64, 175, 0.12); color:#1e40af; font-size:11px; font-weight:700;">상담 신청 완료</span>';
+        }
+        if (sessionActive) {
+          sessionBadge = '<span style="display:inline-flex; align-items:center; gap:6px; padding:4px 10px; border-radius:999px; background: rgba(21, 128, 61, 0.12); color:#166534; font-size:11px; font-weight:700;">상담 진행 중</span>';
+        }
 
         let detailAction = "";
 
@@ -723,16 +735,18 @@
 
         return `
           <tr style="border-bottom: 1px solid var(--line);">
-            <td style="padding: 16px 20px;"><span style="font-weight: 700; color: var(--bg-dark);">${c.name}</span></td>
             <td style="padding: 16px 20px; color: var(--text-primary); font-size: 14px;">
               <div style="display:flex; flex-direction:column; gap:8px;">
-                <span>${c.designer_name || '미지정'}</span>
+                <span style="font-weight: 700; color: var(--bg-dark);">${c.name}</span>
                 ${sessionBadge}
               </div>
             </td>
-            <td style="padding: 16px 20px; color: var(--text-secondary); font-size: 13px;">${visitText}</td>
-            <td style="padding: 16px 20px; color: var(--text-secondary); font-size: 13px;">${c.visit_count || '1'}회</td>
-            <td style="padding: 16px 20px; text-align: right;">
+            <td style="padding: 16px 20px; color: var(--text-primary); font-size: 14px; text-align: center;">
+              <span>${c.designer_name || '미지정'}</span>
+            </td>
+            <td style="padding: 16px 20px; color: var(--text-secondary); font-size: 13px; text-align: center;">${visitText}</td>
+            <td style="padding: 16px 20px; color: var(--text-secondary); font-size: 13px; text-align: center;">${c.visit_count || '1'}회</td>
+            <td style="padding: 16px 20px; text-align: center;">
               <button onclick="${detailAction}" style="border: none; cursor: pointer; font-size: 12px; padding: 6px 14px; background: var(--bg-dark); border-radius: 20px; color: #fff; font-weight: 600;">상세보기</button>
             </td>
           </tr>

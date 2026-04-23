@@ -785,6 +785,94 @@
       return `${Math.round(numeric)}%`;
     }
 
+    function localizeStyleName(rawName) {
+      const original = String(rawName || '').trim();
+      if (!original) {
+        return '선택 스타일';
+      }
+
+      const normalized = original.toLowerCase().replace(/[_-]+/g, ' ').replace(/\s+/g, ' ').trim();
+
+      // 전체 스타일명이 자주 쓰는 조합이면 우선 치환
+      const exactMap = {
+        'french bob': '프렌치 보브',
+        'hush cut': '허쉬 컷',
+        'wolf cut': '울프 컷',
+        'pixie cut': '픽시 컷',
+        'two block': '투블럭',
+        'two block cut': '투블럭 컷',
+        'clean crop two block': '클린 크롭 투블럭',
+        'side parted lob': '사이드 파티드 롱보브',
+        'sleek mini bob': '슬릭 미니 보브',
+        'soft layered cut': '소프트 레이어드 컷',
+        'shaggy midi cut': '샤기 미디 컷',
+        'soft down perm': '소프트 다운 펌',
+        'down perm': '다운 펌'
+      };
+      if (exactMap[normalized]) {
+        return exactMap[normalized];
+      }
+
+      const tokenMap = {
+        short: '숏',
+        medium: '미디엄',
+        midi: '미디',
+        long: '롱',
+        mini: '미니',
+        side: '사이드',
+        parted: '파티드',
+        part: '파트',
+        sleek: '슬릭',
+        soft: '소프트',
+        natural: '내추럴',
+        volume: '볼륨',
+        wave: '웨이브',
+        wavy: '웨이비',
+        layered: '레이어드',
+        layer: '레이어',
+        shaggy: '샤기',
+        hush: '허쉬',
+        wolf: '울프',
+        pixie: '픽시',
+        crop: '크롭',
+        bob: '보브',
+        lob: '롱보브',
+        down: '다운',
+        up: '업',
+        perm: '펌',
+        cut: '컷',
+        style: '스타일',
+        bang: '뱅',
+        see: '씨',
+        c: 'C',
+        s: 'S'
+      };
+
+      // 사전에 없는 영문 토큰도 한글 표기로 강제 변환
+      const letterMap = {
+        a: '에이', b: '비', c: '씨', d: '디', e: '이', f: '에프', g: '지', h: '에이치',
+        i: '아이', j: '제이', k: '케이', l: '엘', m: '엠', n: '엔', o: '오', p: '피',
+        q: '큐', r: '알', s: '에스', t: '티', u: '유', v: '브이', w: '더블유', x: '엑스',
+        y: '와이', z: '지'
+      };
+      function spellEnglishToken(token) {
+        return token
+          .toLowerCase()
+          .split('')
+          .map((ch) => letterMap[ch] || ch)
+          .join('');
+      }
+
+      return original
+        .replace(/[_-]+/g, ' ')
+        .replace(/[A-Za-z]+/g, (matched) => {
+          const lower = matched.toLowerCase();
+          return tokenMap[lower] || spellEnglishToken(lower);
+        })
+        .replace(/\s+/g, ' ')
+        .trim();
+    }
+
     function getFaceShapeLabel(value) {
       const normalized = String(value || '').trim().toLowerCase();
       if (!normalized) {
@@ -1588,7 +1676,8 @@
         return '';
       }
 
-      const styleName = activeConsultation.selected_style_name || '선택 스타일';
+      const styleNameRaw = activeConsultation.selected_style_name || '선택 스타일';
+      const styleName = localizeStyleName(styleNameRaw);
       const imageUrl = String(activeConsultation.selected_style_image_url || '').trim();
       const scoreText = formatScore(activeConsultation.selected_style_score);
       const createdAt = formatDate(activeConsultation.created_at);
