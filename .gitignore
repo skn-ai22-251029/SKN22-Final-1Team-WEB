@@ -134,6 +134,7 @@ frontend/*.log
 frontend/**/*.log
 
 # Local helper artifacts
+output/
 deploy.zip
 seed_test_data.py
 tasks/

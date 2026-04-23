@@ -52,7 +52,8 @@ EFS_FILE_SYSTEM_ID="$(read_env NCS_EFS_FILE_SYSTEM_ID || true)"
 EFS_ACCESS_POINT_ID="$(read_env NCS_EFS_ACCESS_POINT_ID || true)"
 EFS_REGION="$(read_env NCS_EFS_REGION || read_env AWS_REGION || read_env AWS_DEFAULT_REGION || true)"
 EFS_MOUNT_POINT="$(read_env NCS_EFS_MOUNT_POINT || read_env NCS_PDF_SYNC_SOURCE_DIR || true)"
-MOUNT_TIMEOUT_SECONDS="$(read_env NCS_EFS_MOUNT_TIMEOUT_SECONDS || printf '45')"
+MOUNT_TIMEOUT_SECONDS="$(read_env NCS_EFS_MOUNT_TIMEOUT_SECONDS || printf '15')"
+INSTALL_UTILS_ENABLED="$(read_env NCS_EFS_INSTALL_UTILS || printf '0')"
 
 if [ -z "${EFS_MOUNT_POINT}" ]; then
   EFS_MOUNT_POINT="${DEFAULT_MOUNT_POINT}"
@@ -75,10 +76,14 @@ if mountpoint -q "${EFS_MOUNT_POINT}"; then
 fi
 
 if [ -n "${EFS_ACCESS_POINT_ID}" ] && ! command -v mount.efs >/dev/null 2>&1; then
+  if [ "${INSTALL_UTILS_ENABLED}" != "1" ]; then
+    skip_mount "NCS_EFS_ACCESS_POINT_ID requires amazon-efs-utils; set NCS_EFS_INSTALL_UTILS=1 to allow host package install"
+  fi
+
   if command -v dnf >/dev/null 2>&1; then
-    dnf install -y amazon-efs-utils || true
+    run_mount dnf install -y amazon-efs-utils || skip_mount "amazon-efs-utils install failed or timed out after ${MOUNT_TIMEOUT_SECONDS}s"
   elif command -v yum >/dev/null 2>&1; then
-    yum install -y amazon-efs-utils || true
+    run_mount yum install -y amazon-efs-utils || skip_mount "amazon-efs-utils install failed or timed out after ${MOUNT_TIMEOUT_SECONDS}s"
   else
     skip_mount "amazon-efs-utils is required for access point mounts"
   fi

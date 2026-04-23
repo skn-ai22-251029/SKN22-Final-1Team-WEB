@@ -11,20 +11,31 @@ from app.session_state import (
 
 class ElasticBeanstalkHealthCheckMiddleware(MiddlewareMixin):
     """
-    Return a lightweight 200 response for ALB/ELB health checks before Django's
-    host validation runs.
+    Return a lightweight 200 response for ALB/ELB health checks before host,
+    session, database, and template work can run.
     """
 
-    HEALTH_PATHS = {"/", "/health", "/health/"}
-    HEALTHCHECK_USER_AGENT_PREFIXES = ("ELB-HealthChecker/",)
+    HEALTH_PATHS = {"/health", "/health/", "/api/health", "/api/health/"}
+    ROOT_HEALTH_PATHS = {"/"}
+    HEALTHCHECK_USER_AGENT_PREFIXES = (
+        "ELB-HealthChecker/",
+        "HealthChecker/",
+        "Amazon-Route53-Health-Check-Service",
+    )
 
     def process_request(self, request):
         user_agent = str(request.META.get("HTTP_USER_AGENT") or "")
-        if request.path not in self.HEALTH_PATHS:
+        is_health_path = request.path in self.HEALTH_PATHS
+        is_root_healthcheck = request.path in self.ROOT_HEALTH_PATHS and user_agent.startswith(
+            self.HEALTHCHECK_USER_AGENT_PREFIXES
+        )
+
+        if not is_health_path and not is_root_healthcheck:
             return None
-        if not user_agent.startswith(self.HEALTHCHECK_USER_AGENT_PREFIXES):
-            return None
-        return JsonResponse({"status": "django_running", "framework": "Django"})
+
+        response = JsonResponse({"status": "ok", "framework": "Django"})
+        response["Cache-Control"] = "no-store"
+        return response
 
 
 class BrowserSessionCleanupMiddleware(MiddlewareMixin):
