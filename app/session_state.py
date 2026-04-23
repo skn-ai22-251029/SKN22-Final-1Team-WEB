@@ -89,10 +89,11 @@ def get_session_customer(*, request: HttpRequest) -> Client | None:
     return None
 
 
-def set_admin_session(*, request: HttpRequest, admin: AdminAccount) -> None:
+def set_admin_session(*, request: HttpRequest, admin: AdminAccount, rotate_key: bool = True) -> None:
     # 로그인 시 세션 키 순환: 만료·삭제된 세션으로 UPDATE를 시도해 발생하는
     # SessionInterrupted 방지 + 세션 고정(session fixation) 공격 방지
-    request.session.cycle_key()
+    if rotate_key:
+        request.session.cycle_key()
     request.session[ADMIN_ID_SESSION_KEY] = str(admin.id)
     request.session[ADMIN_LEGACY_ID_SESSION_KEY] = get_legacy_admin_id(admin=admin)
     request.session[ADMIN_STORE_NAME_SESSION_KEY] = admin.store_name
