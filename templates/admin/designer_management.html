@@ -60,6 +60,30 @@
     color: #b42318;
     border: 1px solid #fecaca;
   }
+
+  /* 대시보드 페이지의 back-btn 스타일과 동일 */
+  .back-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    color: var(--text-secondary);
+    text-decoration: none;
+    font-size: 13px;
+    font-weight: 600;
+    padding: 8px 16px;
+    border-radius: 10px;
+    border: 1.5px solid var(--line);
+    background: #fff;
+    transition: all 0.2s ease;
+    cursor: pointer;
+  }
+
+  .back-btn:hover {
+    color: var(--bg-dark);
+    border-color: var(--bg-dark);
+    background: #fcfcfc;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+  }
 </style>
 {% endblock %}
 
@@ -81,6 +105,10 @@
       <div style="display: flex; gap: 8px; flex-wrap: wrap; align-items: center;">
         <a href="{% url 'partner_designer_signup' %}" class="session-btn" style="height: 32px !important; padding: 0 14px !important; font-size: 13px !important; border-radius: 999px !important; background: var(--bg-dark) !important; color: #fff !important; border: none !important; font-weight: 700; display: inline-flex; align-items: center; text-decoration: none;">신규 디자이너 생성</a>
         <button onclick="openDeletePinModal()" class="session-btn" style="height: 32px !important; padding: 0 14px !important; font-size: 13px !important; border-radius: 999px !important; background: #fff !important; color: var(--text-secondary) !important; border: 1.5px solid var(--line) !important; font-weight: 600; cursor: pointer; display: inline-flex; align-items: center; transition: all 0.2s ease;">기존 디자이너 삭제</button>
+        <a href="{% url 'partner_dashboard' %}" class="back-btn">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></svg>
+          대시보드
+        </a>
       </div>
     </div>
 
@@ -203,9 +231,9 @@
       targetDesignerId = '';
       targetDesignerName = '';
       currentPin = '';
-      if (pinHeaderTitle) pinHeaderTitle.textContent = '??? ??';
-      if (pinHeaderDesc) pinHeaderDesc.textContent = '???? ??? ?? ??? ???(PIN)? ??? ???.';
-      if (pinSubmitBtn) pinSubmitBtn.textContent = '??';
+      if (pinHeaderTitle) pinHeaderTitle.textContent = '관리자 인증';
+      if (pinHeaderDesc) pinHeaderDesc.textContent = '디자이너 삭제를 위해 관리자 보안키(PIN)를 입력해 주세요.';
+      if (pinSubmitBtn) pinSubmitBtn.textContent = '확인';
       updatePinDots();
       if (pinModal) pinModal.classList.add('active');
     };
@@ -268,11 +296,11 @@
           });
           const data = await response.json();
           if (data.status === 'success') {
-            window.alert(data.message || '???? PIN ??? ???????.');
+            window.alert(data.message || '디자이너 잠금이 해제되었습니다.');
             closeAdminPinModal();
             clearPin();
           } else {
-            window.alert(data.message || '?? ??? ??????.');
+            window.alert(data.message || '잠금 해제에 실패했습니다.');
             clearPin();
           }
           return;
@@ -287,11 +315,11 @@
         if (data.status === 'success') {
           window.location.href = "{% url 'partner_designer_delete' %}";
         } else {
-          window.alert(data.message || '????? ???? ????.');
+          window.alert(data.message || '관리자 인증에 실패했습니다.');
           clearPin();
         }
       } catch (error) {
-        window.alert('?? ?? ? ??? ??????.');
+        window.alert('요청 처리 중 오류가 발생했습니다.');
       }
     };
 
