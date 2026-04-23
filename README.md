@@ -1,19 +1,21 @@
-# MirrAI
+# ✨ MirrAI
 
 MirrAI는 Django 기반 헤어스타일 추천/상담 플랫폼이다.  
 고객 분석 플로우, 파트너 대시보드, 트렌드 리포트, 스타일 리포트, 상담 메모, 그리고 용도가 분리된 두 개의 챗봇을 함께 운영한다.
 
-## 팀 구성
+## 🧩 팀 구성
 
 
-| 팀원 | 커밋 히스토리 기준 역할 | 히스토리에서 확인된 작업 |
-| --- | --- | --- |
-| 최정환 | 프론트엔드 / UI·UX | 관리자·고객 화면, 대시보드, 마이페이지, 챗봇 UI, 세션·네비게이션 흐름 개선 |
-| 문승준 | 백엔드 | RunPod 연동, 추천·분석 API 계약, AI runtime 진단, 회귀 테스트 보강 |
-| 이병재 | 추천·AI 연동 보강 | 추천 로직, `ai_facade`·`services_django`, 저장/결과 흐름, 테스트 보강 |
-| 장완식 | 트렌드·고객 플로우 보강 | 최신 트렌드 피드, 트렌드 화면, 업로드·촬영 흐름, RAG·트렌드 자산 정리 |
+## 👥 팀원 소개 및 소감
 
-## 핵심 기능
+| <img width="160px" height="1px">이름<img width="160px" height="1px"> | 역할 | 소감 |
+| :--- | :--- | :--- |
+| **최정환** | AWS EB 배포 및 운영 환경 관리, CI/CD 파이프라인 구축, UI/UX 기획 및 화면 흐름 개선, 프론트엔드 구현 및 디자인 고도화, 인증/권한 보안 로직 설계 | 비전공자의 인생 첫 웹배포 프로젝트로 어려운 부분이 많았지만 PM님과 팀원분들 덕분에 즐겁게 프로젝트 마무리 할 수 있어 좋았습니다. |
+| **문승준** | 화면설계서 작성, 챗봇용 NCS 학습자료 전처리, 프론트 표시용 API 응답 정비, 배포 환경 안정화, QA | 처음 배우는 프로그래밍과 미숙한 소통에도 불구하고 끝까지 완주할 수 있도록 모두가 잘 이끌어주셨습니다. 참 많은 것을 배웠습니다. |
+| **이병재** | **PM**, 모델 파이프라인 구축, 데이터 크롤링, RAG 파이프라인 구축, DB 설계, 문서 작성, QA, FE/BE 수정 | PM으로서 부족한 점도 많았지만, 끝까지 믿고 같이 달려준 팀원들 덕분에 프로젝트를 무사히 마칠 수 있어 감사한 마음이 큽니다. |
+| **장완식** | 데이터 전처리, 모델 파이프라인 구축, RAG 및 챗봇 구성, 모델 학습 및 평가, Redis 적용, 배포환경 설정, FE/BE 수정, 산출물 작성  | 생소한 도메인이라 어려운 점도 있었지만, 막내인 제 의견을 존중하고 따라주신 덕분에 정말 재밌게 마무리 했습니다. 진심으로 감사합니다! |
+
+## 🌟 핵심 기능
 
 - 고객 플로우
   - 설문, 촬영/업로드, 분석, 추천 결과 확인
@@ -31,7 +33,7 @@ MirrAI는 Django 기반 헤어스타일 추천/상담 플랫폼이다.
   - OpenAI 기반 챗봇 응답
   - AI 헬스 확인 API 제공
 
-## 챗봇 구성
+## 🤖 챗봇 구성
 
 현재 챗봇은 두 개로 분리되어 있다.
 
@@ -57,7 +59,7 @@ MirrAI는 Django 기반 헤어스타일 추천/상담 플랫폼이다.
 - conversation history 반영
 - fallback model 지원
 
-## 시스템 개요
+## 🏗️ 시스템 개요
 
 ```mermaid
 flowchart LR
@@ -87,7 +89,7 @@ flowchart LR
     Trend -. optional .-> RunPod
 ```
 
-## 주요 경로
+## 🗂️ 주요 경로
 
 - URL 진입점: `mirrai_project/urls.py`, `app/urls_front.py`
 - 고객 화면: `templates/customer/*`
@@ -97,7 +99,7 @@ flowchart LR
 - 챗봇 서비스: `app/services/chatbot/*`
 - 트렌드 파이프라인: `app/trend_pipeline/*`
 
-## 데이터 저장소
+## 💾 데이터 저장소
 
 - 운영 DB: Supabase PostgreSQL
 - 캐시/세션: Redis
@@ -112,7 +114,7 @@ flowchart LR
 - Chroma 저장소는 `chroma.sqlite3`만 있으면 안 된다.
 - 같은 디렉터리 아래 `*.bin`, `header.bin`, `link_lists.bin`까지 함께 배포되어야 한다.
 
-## 로컬 실행
+## 🚀 로컬 실행
 
 1. 환경 변수 파일 준비
 
@@ -134,29 +136,29 @@ python manage.py migrate
 python manage.py runserver
 ```
 
-## 환경 변수 요약
+## ⚙️ 환경 변수 요약
 
 배포 기준으로 가장 중요한 값은 아래다.
 
-### 필수
+### ✅ 필수
 
 - `SECRET_KEY`
 - `DEBUG=False`
 - `ALLOWED_HOSTS`
 - `SUPABASE_DB_URL`
 
-### 챗봇 사용 시 권장
+### 💬 챗봇 사용 시 권장
 
 - `MIRRAI_MODEL_CHATBOT_API_KEY` 또는 `OPENAI_API_KEY`
 - `MIRRAI_MODEL_CHATBOT_OPENAI_MODEL`
 - `MIRRAI_MODEL_CHATBOT_FALLBACK_OPENAI_MODEL`
 
-### Redis 사용 시 권장
+### 🧠 Redis 사용 시 권장
 
 - `REDIS_URL`
 - `REDIS_USE_FOR_SESSIONS=True`
 
-### NCS PDF / EFS 사용 시
+### 📄 NCS PDF / EFS 사용 시
 
 - `NCS_PDF_SYNC_SOURCE_DIR=/mnt/mirrai-ncs-pdfs`
 - `NCS_PDF_SYNC_STRICT=1`
@@ -170,7 +172,7 @@ python manage.py runserver
 
 상세 체크리스트는 [`docs/elastic_beanstalk_deploy_checklist.md`](docs/elastic_beanstalk_deploy_checklist.md) 참고.
 
-## 배포
+## 🚢 배포
 
 현재 GitHub Actions 배포 흐름은 아래다.
 
@@ -186,11 +188,11 @@ python manage.py runserver
 - `.platform/hooks/predeploy/10_mount_ncs_efs.sh`
 - `.platform/confighooks/predeploy/10_mount_ncs_efs.sh`
 
-## 다른 배포 repo에 업로드할 파일
+## 📦 다른 배포 repo에 업로드할 파일
 
 분리된 배포 repo를 어떻게 쓸지에 따라 올릴 파일이 달라진다.
 
-### 1. 별도 repo가 이미지를 직접 빌드하는 경우
+### 🏗️ 1. 별도 repo가 이미지를 직접 빌드하는 경우
 
 아래 파일/디렉터리를 같이 올려야 한다.
 
@@ -212,7 +214,7 @@ python manage.py runserver
 
 이 목록은 현재 repo의 실제 배포 workflow path filter와 맞춘 것이다.
 
-### 2. 별도 repo가 "이미 빌드된 ECR 이미지"만 배포하는 경우
+### 🖼️ 2. 별도 repo가 "이미 빌드된 ECR 이미지"만 배포하는 경우
 
 최소 업로드 파일:
 
@@ -221,7 +223,7 @@ python manage.py runserver
 
 단, 이 경우 `Dockerrun.aws.json`의 `Image.Name`은 실제 ECR 이미지 URI로 바꿔서 올려야 한다.
 
-## ELB/EB 헬스 체크 메모
+## 🩺 ELB/EB 헬스 체크 메모
 
 - 컨테이너는 `8000` 포트에서 gunicorn으로 뜬다.
 - EB는 `Dockerrun.aws.json`에서 host `80` -> container `8000`으로 연결한다.
@@ -238,7 +240,7 @@ python manage.py runserver
 - optional startup task blocking 여부
 - EB 이벤트 / 컨테이너 로그
 
-## 관련 문서
+## 📚 관련 문서
 
 - 시스템 구조: [`docs/system_architecture/README.md`](docs/system_architecture/README.md)
 - 프롬프트 인젝션 방어: [`docs/prompt_injection_defense/README.md`](docs/prompt_injection_defense/README.md)

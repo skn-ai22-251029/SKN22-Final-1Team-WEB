@@ -120,6 +120,41 @@
     const messageEl = document.getElementById('statusMessage');
     const keypadKeys = Array.from(document.querySelectorAll('.keypad .key'));
 
+    function getCsrfToken() {
+      return document.querySelector('[name=csrfmiddlewaretoken]')?.value || '{{ csrf_token }}';
+    }
+
+    async function readPartnerJson(response) {
+      const contentType = response.headers.get('content-type') || '';
+      if (contentType.includes('application/json')) {
+        return response.json();
+      }
+
+      await response.text();
+      return {
+        status: 'error',
+        message: response.ok
+          ? '응답 형식을 확인해 주세요.'
+          : '서버 오류가 발생했습니다. 잠시 후 다시 시도해 주세요.'
+      };
+    }
+
+    async function postPartnerForm(url, payload) {
+      const body = new URLSearchParams();
+      Object.entries(payload).forEach(([key, value]) => body.append(key, value || ''));
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+          'X-CSRFToken': getCsrfToken(),
+          'X-Requested-With': 'XMLHttpRequest'
+        },
+        credentials: 'same-origin',
+        body: body.toString()
+      });
+      return readPartnerJson(response);
+    }
+
     function updateStatus(msg, type) {
       if (messageEl) {
         messageEl.textContent = msg;
@@ -173,7 +208,10 @@
         <style>@keyframes spin { to { transform: rotate(360deg); } }</style>
       `;
       try {
-        const response = await fetch('/api/v1/admin/designers/');
+        const response = await fetch('/api/v1/admin/designers/', {
+          credentials: 'same-origin',
+          headers: { 'X-Requested-With': 'XMLHttpRequest' }
+        });
         
         if (response.status === 401) {
           window.location.href = '/partner/login/?next=' + encodeURIComponent(window.location.pathname + window.location.search);
@@ -220,19 +258,16 @@
               // 분석 시작하기 흐름: PIN 없이 바로 선택 API 호출 후 이동
               updateStatus("디자이너 선택 중...", "loading");
               try {
-                const response = await fetch('/partner/select-designer/', {
-                  method: 'POST',
-                  headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'X-CSRFToken': '{{ csrf_token }}' },
-                  body: `designer_id=${selectedDesignerId}`
+                const data = await postPartnerForm('/partner/select-designer/', {
+                  designer_id: selectedDesignerId
                 });
-                const data = await response.json();
                 if (data.status === 'success') {
                   window.location.href = nextParam || '/customer/';
                 } else {
                   updateStatus(data.message || "디자이너 선택 실패", "error");
                 }
               } catch (e) {
-                updateStatus("통신 오류", "error");
+                updateStatus("서버와 연결할 수 없습니다. 잠시 후 다시 시도해 주세요.", "error");
               }
             } else {
               // 디자이너 대시보드 흐름: 기존 PIN 입력 단계 유지
@@ -268,12 +303,9 @@
           const isAnalysisFlow = nextParam.includes('/customer/') || nextParam.includes('/client/');
           if (isAnalysisFlow) {
             try {
-              const response = await fetch('/partner/select-designer/', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'X-CSRFToken': '{{ csrf_token }}' },
-                body: `designer_id=${selectedDesignerId}`
+              const data = await postPartnerForm('/partner/select-designer/', {
+                designer_id: selectedDesignerId
               });
-              const data = await response.json();
               if (data.status === 'success') {
                 window.location.href = nextParam || '/customer/';
                 return;
@@ -310,12 +342,10 @@
     async function verifyPin() {
       updateStatus("인증 중...", "loading");
       try {
-        const response = await fetch('/partner/verify/', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'X-CSRFToken': '{{ csrf_token }}' },
-          body: `pin=${currentPin}&designer_id=${selectedDesignerId}`
+        const data = await postPartnerForm('/partner/verify/', {
+          pin: currentPin,
+          designer_id: selectedDesignerId
         });
-        const data = await response.json();
         if (data.status === 'success') {
           updateStatus("인증 성공!", "success");
           const urlParams = new URLSearchParams(window.location.search);
@@ -330,7 +360,7 @@
           }
           handleFail(data.message);
         }
-      } catch (e) { handleFail("통신 오류"); }
+      } catch (e) { handleFail("서버와 연결할 수 없습니다. 잠시 후 다시 시도해 주세요."); }
     }
 
     function handleFail(msg) {

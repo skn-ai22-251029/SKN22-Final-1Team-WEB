@@ -209,6 +209,16 @@ def _matches_admin_password(*, raw_password: str, stored_password: str | None) -
     return normalized_password == normalized_stored_password
 
 
+def _matches_designer_pin(*, raw_pin: str, stored_pin: str | None) -> bool:
+    normalized_pin = (raw_pin or "").strip()
+    normalized_stored_pin = (stored_pin or "").strip()
+    if not normalized_pin or not normalized_stored_pin:
+        return False
+    if _is_hashed_secret(normalized_stored_pin):
+        return check_password(normalized_pin, normalized_stored_pin)
+    return normalized_pin == normalized_stored_pin
+
+
 def _get_admin_account_for_runtime_admin(admin):
     from app.models_django import AdminAccount
 
@@ -1437,7 +1447,7 @@ def partner_verify(request):
                 status=423,
             )
 
-        if not check_password(pin, designer.pin_hash):
+        if not _matches_designer_pin(raw_pin=pin, stored_pin=getattr(designer, "pin_hash", None)):
             fail_state = _record_designer_pin_failure(admin=admin, designer_id=designer_id, request=request)
             if fail_state["is_locked"]:
                 return JsonResponse(
@@ -1462,7 +1472,7 @@ def partner_verify(request):
         _clear_designer_pin_failures(admin=admin, designer_id=designer_id, request=request)
         clear_customer_session(request=request)
         active_shop = getattr(designer, "shop", None) or admin
-        set_admin_session(request=request, admin=active_shop)
+        set_admin_session(request=request, admin=active_shop, rotate_key=False)
         set_designer_session(request=request, designer=designer)
         revoke_owner_dashboard(request=request)
         return JsonResponse(
